@@ -4,6 +4,7 @@ import { ArrowDownRight, ArrowUpRight, Info, Plug } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { formatMoney } from "@/lib/format";
+import { IS_LOCAL } from "@/lib/local/mode";
 
 export function PageHeader({
   title,
@@ -172,8 +173,12 @@ export function SetupRequired({
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-[13.5px] font-medium">{title}</p>
-          <div className="mt-1 text-[12.5px] text-muted">{description}</div>
-          {missing && missing.length > 0 ? (
+          <div className="mt-1 text-[12.5px] text-muted">
+            {IS_LOCAL
+              ? "This needs a private server (for Google, bank or AI credentials), which the GitHub Pages edition doesn't have - everything here runs in your browser. Import a bank CSV instead, or deploy the full edition described in the README."
+              : description}
+          </div>
+          {!IS_LOCAL && missing && missing.length > 0 ? (
             <div className="mt-2 hidden flex-wrap gap-1.5 sm:flex">
               {missing.map((m) => (
                 <code key={m} className="rounded bg-surface-3 px-1.5 py-0.5 font-mono text-[11px] text-secondary">
@@ -182,7 +187,14 @@ export function SetupRequired({
               ))}
             </div>
           ) : null}
-          {action ? <div className="mt-3 flex flex-wrap gap-2">{action}</div> : null}
+          {action && !IS_LOCAL ? <div className="mt-3 flex flex-wrap gap-2">{action}</div> : null}
+          {IS_LOCAL ? (
+            <div className="mt-3">
+              <Link href="/finances/transactions?import=1" className="text-[12.5px] text-accent-text hover:underline">
+                Import a bank CSV →
+              </Link>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

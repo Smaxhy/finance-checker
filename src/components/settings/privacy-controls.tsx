@@ -6,6 +6,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input, Select, Switch } from "@/components/ui/input";
 import { deleteAccount, deleteAllData, updatePrivacy } from "@/app/actions/settings";
+import { IS_LOCAL } from "@/lib/local/mode";
 
 export function AiConsent({ assistant, extraction, configured }: { assistant: boolean; extraction: boolean; configured: boolean }) {
   const [a, setA] = useState(assistant);
@@ -103,7 +104,11 @@ export function DataControls({ email }: { email: string }) {
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-danger/25 p-4">
         <div>
           <p className="text-[13px] font-medium">Delete all data</p>
-          <p className="mt-0.5 text-[12.5px] text-muted">Revokes every connection and permanently deletes all transactions, emails, events, subscriptions and settings data. Your login stays.</p>
+          <p className="mt-0.5 text-[12.5px] text-muted">
+            {IS_LOCAL
+              ? "Permanently deletes everything this app stored in this browser: transactions, subscriptions, events, budgets and settings."
+              : "Revokes every connection and permanently deletes all transactions, emails, events, subscriptions and settings data. Your login stays."}
+          </p>
         </div>
         <Dialog open={wipeOpen} onOpenChange={(o) => (setWipeOpen(o), setConfirm(""))}>
           <Button variant="danger" size="sm" onClick={() => setWipeOpen(true)}>
@@ -138,6 +143,7 @@ export function DataControls({ email }: { email: string }) {
         </Dialog>
       </div>
 
+      {!IS_LOCAL && (
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-danger/25 p-4">
         <div>
           <p className="text-[13px] font-medium">Delete account</p>
@@ -172,6 +178,7 @@ export function DataControls({ email }: { email: string }) {
           </DialogContent>
         </Dialog>
       </div>
+      )}
     </div>
   );
 }

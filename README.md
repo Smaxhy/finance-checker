@@ -5,6 +5,8 @@ It connects (read-only) to Gmail, Google Calendar and your bank, organises every
 
 > **Nothing is invented.** Until you connect a source, import a CSV or explicitly load demo data, the app shows empty states and "requires setup" cards. Demo data is generated on request, marked **DEMO** everywhere, and removable in one click.
 
+> **Don't want to run a server?** Use the [GitHub Pages edition](#easiest-github-pages-edition-no-server-no-accounts). It runs entirely in your browser, with no accounts or keys to set up.
+
 ---
 
 ## What's inside
@@ -53,6 +55,40 @@ src/
     demo/              demo-data generator
 supabase/migrations/   schema, RLS policies, analytics functions
 ```
+
+---
+
+## Easiest: GitHub Pages edition (no server, no accounts)
+
+If you just want to use it, skip Supabase and Vercel entirely. The same app is also built as a static site that runs **completely in your browser**. There is no login, and your data is stored on your device (IndexedDB), never on a server.
+
+**One-time setup** (about 1 minute):
+
+1. On GitHub, open the repo's **Settings → Pages**.
+2. Under *Build and deployment → Source*, choose **GitHub Actions**.
+3. Push to the default branch, or run the **Deploy to GitHub Pages** workflow from the *Actions* tab.
+
+The site appears at `https://<your-username>.github.io/<repo-name>/` (for this repo: `https://smaxhy.github.io/finance-checker/`). The workflow (`.github/workflows/pages.yml`) runs the unit tests and rebuilds the site on every push.
+
+**What works:**
+- Bank CSV import, with column auto-detection and no duplicates on re-import.
+- Categories and rules, manual transactions, and budgets.
+- Recurring and subscription detection, and the cancellation workflow.
+- Calendar events and tasks, the insights, notifications, reports, and charts.
+- Demo data, CSV and JSON export, delete-all, and the phone layout.
+
+**What doesn't:**
+- Gmail, Google Calendar, live bank sync and the AI assistant. They need secret API credentials, and a static site has no safe place to keep them. Those screens say so and point to CSV import instead.
+
+**Things to know:**
+- Your data lives only in the browser you use it in. A different browser, a different device, or clearing site data starts empty.
+- To move or back up your data, use *Settings → Privacy & Security → Download export*.
+- The site is public, but the data isn't: every visitor gets their own empty, private copy in their own browser.
+- Adding the app to your phone's home screen works the same way as in the full edition.
+
+To build it yourself, run `NEXT_PUBLIC_BASE_PATH=/<repo-name> npm run build:pages`. This writes `out/`. For a local preview, run `npm run dev:pages` (it serves on port 3100).
+
+How it works: route files named `*.local.tsx` are used only by this build (`pageExtensions`). `tsconfig.local.json` swaps the Supabase client for an in-browser query engine (`src/lib/local/db.ts`), which implements the subset of supabase-js the app uses. Each page's server component then renders in the browser against that local data, and the export and sync endpoints are answered client-side (`src/lib/local/boot.tsx`). The full edition below is unchanged.
 
 ---
 
@@ -191,13 +227,13 @@ curl -H "Authorization: Bearer $CRON_SECRET" https://your-app.example/api/cron/d
 npm test
 ```
 
-There are 109 unit tests. They cover the categoriser, transfer pairing, recurring and price-change detection, the CSV parser across bank layouts, Enable Banking mapping and JWT signing, email MIME parsing, classification and extraction (nl/fr/en fixtures), the Gmail sync against mocked API responses, the calendar sync against mocked responses, timezone/DST handling, subscription helpers, report helpers, assistant tools, and the assistant loop against a mocked streaming API.
+There are 118 unit tests. They cover the categoriser, transfer pairing, recurring and price-change detection, the CSV parser across bank layouts, Enable Banking mapping and JWT signing, email MIME parsing, classification and extraction (nl/fr/en fixtures), the Gmail sync against mocked API responses, the calendar sync against mocked responses, timezone/DST handling, subscription helpers, report helpers, assistant tools, and the assistant loop against a mocked streaming API, and the in-browser database used by the GitHub Pages edition.
 
 ```bash
 npx tsc --noEmit && npm run lint && npm run build
 ```
 
-End-to-end flows were exercised with Playwright against a local Supabase stack: sign-up, CSV import (and re-import without duplicates), recategorisation rules, manual entries, exports, demo data, every page, the full cancellation flow, notifications, the RLS isolation checks, and delete-all-data.
+End-to-end flows were exercised with Playwright against a local Supabase stack: sign-up, CSV import (and re-import without duplicates), recategorisation rules, manual entries, exports, demo data, every page, the full cancellation flow, notifications, the RLS isolation checks, and delete-all-data. The GitHub Pages build was tested the same way, served under a `/finance-checker/` base path like GitHub Pages: CSV import and persistence across reloads, demo data, every page, deep links to subscription details, the cancellation flow, both exports, delete-all, and the phone layout.
 
 ---
 

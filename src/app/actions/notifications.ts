@@ -1,34 +1,19 @@
 "use server";
-import { revalidatePath } from "next/cache";
-import { z } from "zod";
-import { requireUser } from "@/lib/supabase/server";
-import { refreshNotificationsForUser } from "@/lib/engines/notifications";
+// Server wrappers - the logic lives in src/lib/actions/notifications.ts.
+import * as impl from "@/lib/actions/notifications";
 
-export async function markNotificationRead(id: string) {
-  const parsed = z.uuid().safeParse(id);
-  if (!parsed.success) return;
-  const { supabase } = await requireUser();
-  await supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("id", parsed.data).is("read_at", null);
-  revalidatePath("/", "layout");
+export async function markNotificationRead(...args: Parameters<typeof impl.markNotificationRead>): ReturnType<typeof impl.markNotificationRead> {
+  return impl.markNotificationRead(...args);
 }
 
-export async function markAllNotificationsRead() {
-  const { supabase } = await requireUser();
-  await supabase.from("notifications").update({ read_at: new Date().toISOString() }).is("read_at", null);
-  revalidatePath("/", "layout");
+export async function markAllNotificationsRead(...args: Parameters<typeof impl.markAllNotificationsRead>): ReturnType<typeof impl.markAllNotificationsRead> {
+  return impl.markAllNotificationsRead(...args);
 }
 
-export async function deleteNotification(id: string) {
-  const parsed = z.uuid().safeParse(id);
-  if (!parsed.success) return;
-  const { supabase } = await requireUser();
-  await supabase.from("notifications").delete().eq("id", parsed.data);
-  revalidatePath("/", "layout");
+export async function deleteNotification(...args: Parameters<typeof impl.deleteNotification>): ReturnType<typeof impl.deleteNotification> {
+  return impl.deleteNotification(...args);
 }
 
-export async function refreshNotifications() {
-  const { supabase, user } = await requireUser();
-  const created = await refreshNotificationsForUser(supabase, user.id);
-  revalidatePath("/", "layout");
-  return { created };
+export async function refreshNotifications(...args: Parameters<typeof impl.refreshNotifications>): ReturnType<typeof impl.refreshNotifications> {
+  return impl.refreshNotifications(...args);
 }

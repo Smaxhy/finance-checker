@@ -4,9 +4,9 @@ import path from "node:path";
 export default defineConfig({
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "src"),
+      "@": path.resolve(import.meta.dirname, "src"),
       // `server-only` throws outside a React Server environment; unit tests run plain Node.
-      "server-only": path.resolve(__dirname, "src/test/server-only-stub.ts"),
+      "server-only": path.resolve(import.meta.dirname, "src/test/server-only-stub.ts"),
     },
   },
   test: {

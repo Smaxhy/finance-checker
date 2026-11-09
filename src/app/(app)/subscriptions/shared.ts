@@ -1,4 +1,5 @@
-import "server-only";
+// Holds no secrets: queries go through the caller's row-level-security client, so this
+// also runs in the browser-only GitHub Pages edition (against on-device data).
 import { getCategories, getProfile } from "@/lib/data/core";
 import type { CategoryOption } from "@/components/subscriptions/subscription-form";
 

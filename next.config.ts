@@ -47,4 +47,23 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+/**
+ * GitHub Pages edition (NEXT_PUBLIC_LOCAL_MODE=1): a static export that runs
+ * entirely in the browser. Only *.local.tsx route files are used, and
+ * tsconfig.local.json swaps server modules (database client, server actions,
+ * credential crypto) for browser versions backed by on-device storage.
+ */
+const pagesConfig: NextConfig = {
+  output: "export",
+  distDir: "out", // static site output; also keeps the server edition's .next (and its route types) untouched
+  basePath: process.env.NEXT_PUBLIC_BASE_PATH || undefined,
+  trailingSlash: true,
+  images: { unoptimized: true },
+  pageExtensions: ["local.tsx", "local.ts"],
+  poweredByHeader: false,
+  // The server edition is type-checked with the main tsconfig (npm run typecheck).
+  typescript: { tsconfigPath: "tsconfig.local.json", ignoreBuildErrors: true },
+  turbopack: nextConfig.turbopack,
+};
+
+export default process.env.NEXT_PUBLIC_LOCAL_MODE === "1" ? pagesConfig : nextConfig;

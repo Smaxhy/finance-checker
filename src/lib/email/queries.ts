@@ -1,7 +1,8 @@
-import "server-only";
+// Holds no secrets: queries go through the caller's row-level-security client, so this
+// also runs in the browser-only GitHub Pages edition (against on-device data).
 import type { AppSupabaseClient } from "@/lib/supabase/server";
 import type { CalendarEvent, EmailCategory, EmailRecord, Subscription, Transaction } from "@/lib/types";
-import { GOOGLE_SCOPES } from "@/lib/integrations/google/oauth";
+import { GOOGLE_SCOPES } from "@/lib/integrations/google/scopes";
 import { matchMerchant } from "@/lib/finance/merchants";
 import { addDays, toISODate } from "@/lib/dates";
 

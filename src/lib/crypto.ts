@@ -1,5 +1,6 @@
 import "server-only";
-import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+import { hashIdentifierWith } from "@/lib/hash";
 import { env } from "@/lib/env";
 
 /**
@@ -34,9 +35,7 @@ export function decryptJson<T>(payload: string): T {
 
 /** Keyed hash used to match IBANs (e.g. own-account transfers) without storing them in clear. */
 export function hashIdentifier(value: string): string {
-  const normalised = value.replace(/\s+/g, "").toUpperCase();
-  const secret = env.tokenEncryptionKey ?? "unkeyed";
-  return createHmac("sha256", secret).update(normalised).digest("hex").slice(0, 32);
+  return hashIdentifierWith(env.tokenEncryptionKey ?? "unkeyed", value);
 }
 
 export function sha256(value: string): string {

@@ -7,11 +7,8 @@ import { randomToken } from "@/lib/crypto";
 import { readSecrets, updateConnection, writeSecrets } from "@/lib/integrations/connections";
 
 /** Read-only scopes only. The app can never send, delete or modify email or calendar data. */
-export const GOOGLE_SCOPES = {
-  gmail: "https://www.googleapis.com/auth/gmail.readonly",
-  calendar: "https://www.googleapis.com/auth/calendar.readonly",
-} as const;
-export type GoogleService = keyof typeof GOOGLE_SCOPES;
+import { GOOGLE_SCOPES, type GoogleService } from "./scopes";
+export { GOOGLE_SCOPES, hasScope, type GoogleService } from "./scopes";
 const IDENTITY_SCOPES = ["openid", "email"];
 
 export interface GoogleSecrets {
@@ -133,6 +130,3 @@ export async function googleFetch<T>(accessToken: string, url: string): Promise<
   throw new Error("Google API is rate limiting requests - try again later");
 }
 
-export function hasScope(connection: Pick<Connection, "scopes">, service: GoogleService) {
-  return connection.scopes.includes(GOOGLE_SCOPES[service]);
-}

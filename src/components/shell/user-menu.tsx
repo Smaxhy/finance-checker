@@ -6,6 +6,7 @@ import { initials } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { signOut } from "@/app/actions/auth";
 import { useTheme } from "./theme";
+import { IS_LOCAL } from "@/lib/local/mode";
 
 export function UserMenu({ user, collapsed }: { user: { email: string | null; name: string | null }; collapsed: boolean }) {
   const { theme, setTheme } = useTheme();
@@ -25,13 +26,13 @@ export function UserMenu({ user, collapsed }: { user: { email: string | null; na
           {!collapsed && (
             <span className="min-w-0">
               <span className="block truncate text-[12.5px] font-medium">{user.name ?? "Account"}</span>
-              <span className="block truncate text-[11.5px] text-muted">{user.email}</span>
+              <span className="block truncate text-[11.5px] text-muted">{IS_LOCAL ? "Stored in this browser" : user.email}</span>
             </span>
           )}
         </button>
       </DropdownTrigger>
       <DropdownContent align="start" side="top" className="w-56">
-        <DropdownLabel>{user.email}</DropdownLabel>
+        <DropdownLabel>{IS_LOCAL ? "GitHub Pages edition · data stays on this device" : user.email}</DropdownLabel>
         <DropdownItem asChild>
           <Link href="/settings/accounts">
             <Plug /> Connected accounts
@@ -50,10 +51,14 @@ export function UserMenu({ user, collapsed }: { user: { email: string | null; na
         <DropdownItem onSelect={() => setTheme(theme === "light" ? "dark" : "light")}>
           {theme === "light" ? <Moon /> : <Sun />} {theme === "light" ? "Dark mode" : "Light mode"}
         </DropdownItem>
-        <DropdownSeparator />
-        <DropdownItem onSelect={() => void signOut()} className="text-danger data-[highlighted]:text-danger">
-          <LogOut /> Sign out
-        </DropdownItem>
+        {!IS_LOCAL && (
+          <>
+            <DropdownSeparator />
+            <DropdownItem onSelect={() => void signOut()} className="text-danger data-[highlighted]:text-danger">
+              <LogOut /> Sign out
+            </DropdownItem>
+          </>
+        )}
       </DropdownContent>
     </Dropdown>
   );

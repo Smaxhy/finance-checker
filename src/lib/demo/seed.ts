@@ -1,4 +1,5 @@
-import "server-only";
+// Holds no secrets: queries go through the caller's row-level-security client, so this
+// also runs in the browser-only GitHub Pages edition (against on-device data).
 /**
  * Generates realistic Belgian sample data for exploring the app. Everything
  * is inserted with is_demo = true, displayed with a DEMO badge, and removable

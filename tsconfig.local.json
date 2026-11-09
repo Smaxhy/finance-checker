@@ -1,0 +1,16 @@
+{
+  "//": "Used only by the GitHub Pages build (NEXT_PUBLIC_LOCAL_MODE=1): swaps server modules for browser versions.",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/lib/supabase/server": ["./src/lib/local/server.ts"],
+      "@/lib/crypto": ["./src/lib/local/crypto.ts"],
+      "@/lib/revalidate": ["./src/lib/local/revalidate.ts"],
+      "@/app/actions/settings": ["./src/lib/local/actions/settings.ts"],
+      "@/app/actions/auth": ["./src/lib/local/actions/auth.ts"],
+      "@/app/actions/*": ["./src/lib/actions/*"],
+      "server-only": ["./src/lib/local/empty.ts"],
+      "@/*": ["./src/*"]
+    }
+  }
+}

@@ -1,48 +1,15 @@
 "use server";
-import { revalidatePath } from "next/cache";
-import { z } from "zod";
-import { requireUser } from "@/lib/supabase/server";
+// Server wrappers - the logic lives in src/lib/actions/emails.ts.
+import * as impl from "@/lib/actions/emails";
 
-/**
- * These actions only change Command Centre's own extracted records.
- * Nothing here (or anywhere in the app) sends, modifies or deletes Gmail messages.
- */
-
-const CATEGORIES = ["receipt", "purchase", "order", "shipping", "subscription", "trial", "renewal", "cancellation", "bill", "booking", "travel", "appointment", "important", "other"] as const;
-
-type Result = { ok: true } | { ok: false; message: string };
-
-export async function updateEmailCategory(id: string, category: string): Promise<Result> {
-  const parsed = z.object({ id: z.uuid(), category: z.enum(CATEGORIES) }).safeParse({ id, category });
-  if (!parsed.success) return { ok: false, message: "Invalid category" };
-  const { supabase } = await requireUser();
-  const { error } = await supabase.from("emails").update({ category: parsed.data.category }).eq("id", parsed.data.id);
-  if (error) return { ok: false, message: error.message };
-  await supabase.rpc("log_audit", { p_action: "email.recategorised", p_details: { id: parsed.data.id, category: parsed.data.category } });
-  revalidatePath("/emails", "layout");
-  return { ok: true };
+export async function updateEmailCategory(...args: Parameters<typeof impl.updateEmailCategory>): ReturnType<typeof impl.updateEmailCategory> {
+  return impl.updateEmailCategory(...args);
 }
 
-export async function setEmailImportant(id: string, important: boolean): Promise<Result> {
-  const parsed = z.object({ id: z.uuid(), important: z.boolean() }).safeParse({ id, important });
-  if (!parsed.success) return { ok: false, message: "Invalid request" };
-  const { supabase } = await requireUser();
-  const { error } = await supabase.from("emails").update({ is_important: parsed.data.important }).eq("id", parsed.data.id);
-  if (error) return { ok: false, message: error.message };
-  revalidatePath("/emails", "layout");
-  revalidatePath("/");
-  return { ok: true };
+export async function setEmailImportant(...args: Parameters<typeof impl.setEmailImportant>): ReturnType<typeof impl.setEmailImportant> {
+  return impl.setEmailImportant(...args);
 }
 
-/** Removes the extracted record from Command Centre only. The message in Gmail is untouched. */
-export async function removeEmailRecord(id: string): Promise<Result> {
-  const parsed = z.uuid().safeParse(id);
-  if (!parsed.success) return { ok: false, message: "Invalid request" };
-  const { supabase } = await requireUser();
-  const { error } = await supabase.from("emails").delete().eq("id", parsed.data);
-  if (error) return { ok: false, message: error.message };
-  await supabase.rpc("log_audit", { p_action: "email.record_removed", p_details: { id: parsed.data } });
-  revalidatePath("/emails", "layout");
-  revalidatePath("/");
-  return { ok: true };
+export async function removeEmailRecord(...args: Parameters<typeof impl.removeEmailRecord>): ReturnType<typeof impl.removeEmailRecord> {
+  return impl.removeEmailRecord(...args);
 }

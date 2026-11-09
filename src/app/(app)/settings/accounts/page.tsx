@@ -4,7 +4,7 @@ import { requireUser } from "@/lib/supabase/server";
 import { must } from "@/lib/data/core";
 import { listAccounts } from "@/lib/data/finance";
 import { env, integrationStatus } from "@/lib/env";
-import { GOOGLE_SCOPES } from "@/lib/integrations/google/oauth";
+import { GOOGLE_SCOPES } from "@/lib/integrations/google/scopes";
 import { formatDate, formatMoney, relativeTime } from "@/lib/format";
 import type { Connection, SyncRun } from "@/lib/types";
 import { daysBetween } from "@/lib/dates";

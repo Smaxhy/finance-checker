@@ -40,3 +40,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# GitHub Pages edition: generated route shells and static export output
+src/app/**/page.local.tsx
+src/app/**/page-client.local.tsx
+/out

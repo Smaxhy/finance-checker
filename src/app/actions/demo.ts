@@ -1,34 +1,11 @@
 "use server";
-import { revalidatePath } from "next/cache";
-import { requireUser } from "@/lib/supabase/server";
-import { applyDemoSubscriptionStates, clearDemo, seedDemoData } from "@/lib/demo/seed";
-import { runPipeline } from "@/lib/engines/pipeline";
+// Server wrappers - the logic lives in src/lib/actions/demo.ts.
+import * as impl from "@/lib/actions/demo";
 
-export async function loadDemoData(): Promise<{ ok: boolean; message: string }> {
-  const { supabase, user } = await requireUser();
-  try {
-    const seeded = await seedDemoData(supabase, user.id);
-    // Run the real detection pipeline over the sample data.
-    await runPipeline(supabase, user.id, { demo: true });
-    await applyDemoSubscriptionStates(supabase, user.id);
-    // Re-run notifications so they reflect the demo states (e.g. pending cancellation).
-    await runPipeline(supabase, user.id, { demo: true });
-    await supabase.rpc("log_audit", { p_action: "demo.load", p_details: seeded });
-    revalidatePath("/", "layout");
-    return { ok: true, message: `${seeded.transactions} transactions, ${seeded.emails} emails and ${seeded.events} events - all marked DEMO.` };
-  } catch (e) {
-    return { ok: false, message: e instanceof Error ? e.message : "Could not load demo data" };
-  }
+export async function loadDemoData(...args: Parameters<typeof impl.loadDemoData>): ReturnType<typeof impl.loadDemoData> {
+  return impl.loadDemoData(...args);
 }
 
-export async function clearDemoData(): Promise<{ ok: boolean; message: string }> {
-  const { supabase } = await requireUser();
-  try {
-    await clearDemo(supabase);
-    await supabase.rpc("log_audit", { p_action: "demo.clear", p_details: {} });
-    revalidatePath("/", "layout");
-    return { ok: true, message: "Demo data removed" };
-  } catch (e) {
-    return { ok: false, message: e instanceof Error ? e.message : "Could not remove demo data" };
-  }
+export async function clearDemoData(...args: Parameters<typeof impl.clearDemoData>): ReturnType<typeof impl.clearDemoData> {
+  return impl.clearDemoData(...args);
 }

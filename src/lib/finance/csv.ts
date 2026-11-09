@@ -5,7 +5,7 @@
  * columns, and parses rows into a neutral shape. Pure - no I/O.
  */
 import Papa from "papaparse";
-import { createHash } from "node:crypto";
+import { sha256Hex } from "@/lib/hash";
 
 export type CsvField = "date" | "amount" | "debit" | "credit" | "description" | "counterparty" | "counterpartyAccount" | "currency" | "account";
 
@@ -173,7 +173,7 @@ export function analyseCsv(text: string, overrideMapping?: CsvMapping): CsvAnaly
       counterparty,
       counterpartyAccount,
       account,
-      externalId: createHash("sha256").update(`${base}|${n}`).digest("hex").slice(0, 40),
+      externalId: sha256Hex(`${base}|${n}`).slice(0, 40),
     });
   }
   return { delimiter: parsed.meta.delimiter, headers, headerRow, mapping, rows, errors, totalLines: all.length - headerRow - 1 };
