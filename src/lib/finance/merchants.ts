@@ -311,7 +311,7 @@ export const MERCHANTS: MerchantEntry[] = [
   { key: "pharmacy", name: "Pharmacy", category: "health", patterns: [/apotheek|pharmacie|multipharma|medi-?market|pharmacy/i] },
   { key: "dentist", name: "Dentist", category: "health", patterns: [/tandarts|dentist/i] },
   { key: "doctor", name: "Doctor", category: "health", patterns: [/huisarts|\bdokter\b|m[ée]decin|\bdr\.?\s/i] },
-  { key: "hospital", name: "Hospital", category: "health", patterns: [/\b(uz|az|chu|chr)\s+[a-z]/i, /ziekenhuis|h[ôo]pital|hospital/i] },
+  { key: "hospital", name: "Hospital", category: "health", patterns: [/\b(uz|az|chu|chr)\s+[a-z]/i, /ziekenhuis|h[ôo]pital(?!is)|hospital(?!is)/i] },
   { key: "mutualite", name: "Health insurance fund", category: "health", patterns: [/mutualit|mutualiteit|ziekenfonds|\bhelan\b|solidaris|partenamut|christelijke\s*mut|\bcm\b\s|\bmc\b\s|liberale\s*mut|neutrale\s*mut/i] },
 
   // --- Bills & utilities (recurring, with switching guidance) -------------

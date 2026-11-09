@@ -1,7 +1,8 @@
 import "server-only";
 import type { AppSupabaseClient } from "@/lib/supabase/server";
-import type { BillingCycle, CalendarEvent, EventKind, Subscription, Task } from "@/lib/types";
-import { addDays, startOfDay, toISODate } from "@/lib/dates";
+import type { CalendarEvent, EventKind, Subscription, Task } from "@/lib/types";
+import { addDays, daysBetween, startOfDay, toISODate } from "@/lib/dates";
+import { projectChargeDates } from "@/lib/calendar/projection";
 import { must } from "@/lib/data/core";
 
 export type UpcomingKind = "subscription" | "bill" | "trial_end" | "cancellation_deadline" | "payment_due" | "event" | "task";
@@ -25,28 +26,6 @@ export interface UpcomingItem {
 const RECURRING_BILL_CATEGORIES = new Set(["bills", "housing"]);
 
 /**
- * Projects a recurring subscription's future charges inside the window
- * (a weekly plan can bill several times in 30 days).
- */
-function projectCharges(sub: Subscription, until: string): string[] {
-  if (!sub.next_payment_date) return [];
-  const dates: string[] = [];
-  let d = sub.next_payment_date;
-  const step: Record<BillingCycle, number> = { weekly: 7, monthly: 0, quarterly: 0, semiannual: 0, yearly: 0, unknown: 0 };
-  dates.push(d);
-  if (step[sub.billing_cycle] > 0) {
-    while (true) {
-      const [y, m, day] = d.split("-").map(Number);
-      const next = toISODate(addDays(new Date(y, m - 1, day), step[sub.billing_cycle]));
-      if (next > until) break;
-      dates.push(next);
-      d = next;
-    }
-  }
-  return dates.filter((x) => x <= until);
-}
-
-/**
  * Upcoming payments, renewals, trials, bills, events and tasks for one user.
  * Always filters by userId explicitly so it is also safe with the service-role
  * client (cron), which bypasses row-level security.
@@ -61,7 +40,7 @@ export async function getUpcoming(supabase: AppSupabaseClient, userId: string, o
     supabase.from("subscriptions").select("*").eq("user_id", userId).in("status", ["active", "trial", "cancellation_pending"]).eq("dismissed", false),
     supabase
       .from("emails")
-      .select("id, subject, merchant, amount, currency, due_date, category, is_demo")
+      .select("id, subject, merchant, merchant_key, amount, currency, due_date, category, is_demo")
       .eq("user_id", userId)
       .not("due_date", "is", null)
       .gte("due_date", fromIso)
@@ -71,12 +50,14 @@ export async function getUpcoming(supabase: AppSupabaseClient, userId: string, o
   ]);
 
   const items: UpcomingItem[] = [];
+  // Projected charges per merchant, used to avoid counting an emailed invoice twice.
+  const projected = new Map<string, { date: string; amount: number | null }[]>();
 
   for (const s of must(subs, "subscriptions") as Subscription[]) {
     const amount = s.amount === null ? null : Number(s.amount);
     if (s.status !== "trial") {
-      for (const date of projectCharges(s, until)) {
-        if (date < fromIso) continue;
+      for (const date of projectChargeDates(s.next_payment_date, s.billing_cycle, fromIso, until)) {
+        projected.set(s.merchant_key, [...(projected.get(s.merchant_key) ?? []), { date, amount }]);
         const isBill = RECURRING_BILL_CATEGORIES.has(s.category_id ?? "");
         items.push({
           id: `sub-${s.id}-${date}`,
@@ -123,7 +104,10 @@ export async function getUpcoming(supabase: AppSupabaseClient, userId: string, o
     }
   }
 
-  for (const e of must(emails, "emails") as { id: string; subject: string | null; merchant: string | null; amount: number | null; currency: string | null; due_date: string; category: string; is_demo: boolean }[]) {
+  for (const e of must(emails, "emails") as { id: string; subject: string | null; merchant: string | null; merchant_key: string | null; amount: number | null; currency: string | null; due_date: string; category: string; is_demo: boolean }[]) {
+    // An invoice for a charge we already project (same merchant, within 5 days) is the same payment.
+    const dup = e.merchant_key && (projected.get(e.merchant_key) ?? []).some((p) => Math.abs(daysBetween(p.date, e.due_date)) <= 5);
+    if (dup) continue;
     items.push({
       id: `email-${e.id}`,
       date: e.due_date,

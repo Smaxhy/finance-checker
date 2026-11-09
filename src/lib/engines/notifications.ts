@@ -2,7 +2,7 @@ import "server-only";
 import type { AppSupabaseClient } from "@/lib/supabase/server";
 import type { NotificationPrefs, Profile, Severity, Subscription } from "@/lib/types";
 import { addDays, addMonths, endOfMonth, monthKey, monthRange, startOfMonth, toISODate } from "@/lib/dates";
-import { formatDate, formatMoney } from "@/lib/format";
+import { formatDate, formatMoney, formatTime } from "@/lib/format";
 import { DEFAULT_NOTIFICATION_PREFS, must } from "@/lib/data/core";
 import { spendingByCategory } from "@/lib/data/finance";
 import { getUpcoming } from "./upcoming";
@@ -79,7 +79,7 @@ export async function refreshNotificationsForUser(supabase: AppSupabaseClient, u
     if (u.kind === "event" && prefs.event_soon && new Date(u.date).getTime() - today.getTime() <= 48 * 3600_000) {
       out.push({
         type: "event_soon",
-        title: `${u.title} ${u.allDay ? formatDate(u.date, "short") : `at ${new Date(u.date).toLocaleTimeString("en-BE", { hour: "2-digit", minute: "2-digit" })} on ${formatDate(u.date, "short")}`}`,
+        title: `${u.title} ${u.allDay ? formatDate(u.date, "short") : `at ${formatTime(u.date)} on ${formatDate(u.date, "short")}`}`,
         body: [u.subtitle, u.amount ? `${fmt(u.amount, u.currency ?? currency)} still to pay` : null].filter(Boolean).join(" · ") || undefined,
         severity: "info",
         link: u.href,

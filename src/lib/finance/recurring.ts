@@ -18,7 +18,8 @@ export interface RecurringCandidate {
   categoryId: string;
   cycle: BillingCycle;
   amount: number; // latest charge, positive
-  previousAmount: number | null; // set when the latest charge differs from the one before
+  previousAmount: number | null; // the price before the most recent price change
+  priceChangedAt: string | null; // first charge at the current price
   priceIncrease: boolean;
   lastDate: string;
   nextDate: string;
@@ -135,11 +136,20 @@ export function detectRecurring(txs: RecurringInput[], today = new Date()): Recu
 
     const amounts = charges.map((c) => -c.amount);
     const latest = amounts[amounts.length - 1];
-    const previous = amounts.length > 1 ? amounts[amounts.length - 2] : null;
     const med = median(amounts);
+    // Most recent price change: walk back while charges match the current price.
+    let changeIdx = -1;
+    for (let i = amounts.length - 2; i >= 0; i--) {
+      if (Math.abs(amounts[i] - latest) / latest > 0.01) {
+        changeIdx = i;
+        break;
+      }
+    }
+    const previous = changeIdx >= 0 ? amounts[changeIdx] : null;
+    const priceChangedAt = changeIdx >= 0 ? charges[changeIdx + 1].booked_at : null;
     // Amount stability, tolerating one step change (price increase / decrease).
     const stable = amounts.filter((a) => Math.abs(a - med) / med <= 0.2).length / amounts.length;
-    const stepChange = previous !== null && Math.abs(latest - previous) / previous > 0.01;
+    const stepChange = previous !== null;
     if (stable < 0.6 && !stepChange) continue;
 
     const lastDate = charges[charges.length - 1].booked_at;
@@ -162,8 +172,9 @@ export function detectRecurring(txs: RecurringInput[], today = new Date()): Recu
       categoryId: isKnownSubscription && entry?.category === "subscriptions" ? "subscriptions" : categoryId,
       cycle: spec.cycle,
       amount: Number(latest.toFixed(2)),
-      previousAmount: stepChange && previous !== null ? Number(previous.toFixed(2)) : null,
-      priceIncrease: stepChange && previous !== null && latest > previous,
+      previousAmount: previous !== null ? Number(previous.toFixed(2)) : null,
+      priceChangedAt,
+      priceIncrease: previous !== null && latest > previous,
       lastDate,
       nextDate,
       firstDate: charges[0].booked_at,

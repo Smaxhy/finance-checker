@@ -49,7 +49,7 @@ export function NotificationBell({ notifications, unreadCount }: { notifications
           </div>
           <div className="max-h-[420px] overflow-y-auto">
             {notifications.length === 0 ? (
-              <p className="px-4 py-10 text-center text-[12.5px] text-muted">You're all caught up.</p>
+              <p className="px-4 py-10 text-center text-[12.5px] text-muted">You’re all caught up.</p>
             ) : (
               notifications.map((n) => {
                 const Icon = severityIcon[n.severity];

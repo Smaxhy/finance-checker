@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { ChevronRight, Command, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -25,15 +25,9 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(initialCollapsed);
-  const [open, setOpen] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(NAV.filter((n) => n.children).map((n) => [n.href, isActive(pathname, n.href)])),
-  );
-
-  // Auto-expand the section of the page you navigate to.
-  useEffect(() => {
-    const section = NAV.find((n) => n.children && isActive(pathname, n.href));
-    if (section) setOpen((o) => (o[section.href] ? o : { ...o, [section.href]: true }));
-  }, [pathname]);
+  // Sections follow the current page unless the user explicitly toggled them.
+  const [toggled, setToggled] = useState<Record<string, boolean>>({});
+  const isOpen = (href: string) => toggled[href] ?? isActive(pathname, href);
 
   const toggleCollapsed = () => {
     setCollapsed((c) => {
@@ -80,8 +74,8 @@ export function Sidebar({
                 item={item}
                 pathname={pathname}
                 collapsed={isCollapsed}
-                open={open[item.href] ?? false}
-                onToggle={() => setOpen((o) => ({ ...o, [item.href]: !o[item.href] }))}
+                open={isOpen(item.href)}
+                onToggle={() => setToggled((o) => ({ ...o, [item.href]: !isOpen(item.href) }))}
                 onNavigate={onNavigate}
               />
             ))}

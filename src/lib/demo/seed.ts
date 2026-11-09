@@ -9,6 +9,7 @@ import { classifyTransaction } from "@/lib/finance/categorize";
 import { addDays, addMonths, startOfMonth, toISODate } from "@/lib/dates";
 import { hashIdentifier } from "@/lib/crypto";
 import { slugify } from "@/lib/finance/merchants";
+import { zonedToUtc } from "@/lib/calendar/time";
 
 function rng(seed: number) {
   let a = seed >>> 0;
@@ -34,10 +35,9 @@ const MONTH_NAMES = ["januari", "februari", "maart", "april", "mei", "juni", "ju
 const CHECKING_IBAN = "BE68539007547034";
 const SAVINGS_IBAN = "BE71096123456769";
 
+/** A wall-clock time in Brussels on the given calendar day (independent of the server's timezone). */
 function at(base: Date, hour: number, minute = 0) {
-  const d = new Date(base);
-  d.setHours(hour, minute, 0, 0);
-  return d;
+  return zonedToUtc(toISODate(base), `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`);
 }
 
 export async function seedDemoData(supabase: AppSupabaseClient, userId: string, today = new Date()) {
@@ -295,14 +295,25 @@ export async function seedDemoData(supabase: AppSupabaseClient, userId: string, 
 
   // ------------------------------------------------------------------- tasks
   await supabase.from("tasks").delete().eq("is_demo", true);
-  await supabase.from("tasks").insert([
-    { user_id: userId, title: "Check tax assessment in MyMinfin", due_at: iso(at(addDays(today, 3), 18)), priority: "high", is_demo: true },
-    { user_id: userId, title: "Decide whether to keep Audible before the trial ends", due_at: iso(at(addDays(today, 4), 20)), is_reminder: true, remind_at: iso(at(addDays(today, 4), 9)), priority: "high", is_demo: true },
-    { user_id: userId, title: "Pay hotel balance at check-in (€386)", due_at: iso(hotelIn), is_reminder: true, priority: "normal", is_demo: true },
-    { user_id: userId, title: "Renew identity card at the municipality", due_at: iso(at(addDays(today, 20), 12)), priority: "normal", is_demo: true },
-    { user_id: userId, title: "Return library books", due_at: iso(at(addDays(today, -1), 17)), priority: "low", is_demo: true },
-    { user_id: userId, title: "Book car service", due_at: null, priority: "low", is_demo: true, completed_at: iso(addDays(today, -2)) },
+  const task = (t: { title: string; due_at: string | null; priority: "low" | "normal" | "high"; is_reminder?: boolean; remind_at?: string | null; completed_at?: string | null }) => ({
+    user_id: userId,
+    title: t.title,
+    due_at: t.due_at,
+    priority: t.priority,
+    is_reminder: t.is_reminder ?? false,
+    remind_at: t.remind_at ?? null,
+    completed_at: t.completed_at ?? null,
+    is_demo: true,
+  });
+  const { error: taskErr } = await supabase.from("tasks").insert([
+    task({ title: "Check tax assessment in MyMinfin", due_at: iso(at(addDays(today, 3), 18)), priority: "high" }),
+    task({ title: "Decide whether to keep Audible before the trial ends", due_at: iso(at(addDays(today, 4), 20)), is_reminder: true, remind_at: iso(at(addDays(today, 4), 9)), priority: "high" }),
+    task({ title: "Pay hotel balance at check-in (€386)", due_at: iso(hotelIn), is_reminder: true, priority: "normal" }),
+    task({ title: "Renew identity card at the municipality", due_at: iso(at(addDays(today, 20), 12)), priority: "normal" }),
+    task({ title: "Return library books", due_at: iso(at(addDays(today, -1), 17)), priority: "low" }),
+    task({ title: "Book car service", due_at: null, priority: "low", completed_at: iso(addDays(today, -2)) }),
   ]);
+  if (taskErr) throw new Error(`Could not insert demo tasks: ${taskErr.message}`);
 
   // ----------------------------------------------------------------- budgets
   await supabase.from("budgets").upsert(
@@ -320,13 +331,38 @@ export async function seedDemoData(supabase: AppSupabaseClient, userId: string, 
 }
 
 /** Status changes the demo needs that real detection would never make on its own. */
-export async function applyDemoSubscriptionStates(supabase: AppSupabaseClient, today = new Date()) {
-  // Streamz: cancellation already confirmed by email.
-  await supabase
+export async function applyDemoSubscriptionStates(supabase: AppSupabaseClient, userId: string, today = new Date()) {
+  // Streamz: cancellation confirmed by email ~2 months ago. Detection rightly
+  // ignores a charge stream that stopped, so the record is created here.
+  const { data: streamz } = await supabase
     .from("subscriptions")
-    .update({ status: "cancelled", cancellation_requested_at: addDays(today, -62).toISOString(), cancellation_confirmed_at: addDays(today, -60).toISOString(), cancellation_reference: "Confirmation email from Streamz", next_payment_date: null })
-    .eq("merchant_key", "streamz")
-    .eq("is_demo", true);
+    .upsert(
+      {
+        user_id: userId,
+        name: "Streamz",
+        provider: "Streamz",
+        merchant_key: "streamz",
+        category_id: "subscriptions",
+        amount: 12.99,
+        billing_cycle: "monthly",
+        status: "cancelled",
+        last_payment_date: toISODate(addDays(today, -78)),
+        last_payment_amount: 12.99,
+        started_at: toISODate(startOfMonth(addMonths(today, -6))),
+        cancellation_requested_at: addDays(today, -62).toISOString(),
+        cancellation_confirmed_at: addDays(today, -60).toISOString(),
+        cancellation_reference: "Confirmation email from Streamz",
+        detection_source: "demo",
+        detection_confidence: 0.9,
+        charge_count: 4,
+        user_confirmed: true,
+        is_demo: true,
+      },
+      { onConflict: "user_id,merchant_key,billing_cycle" },
+    )
+    .select("id")
+    .single();
+  if (streamz) await supabase.from("transactions").update({ subscription_id: streamz.id }).eq("merchant_key", "streamz").eq("is_demo", true);
   // Disney+: the user started cancelling but no confirmation yet.
   await supabase
     .from("subscriptions")

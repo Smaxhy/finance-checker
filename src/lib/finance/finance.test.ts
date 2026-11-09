@@ -38,6 +38,19 @@ describe("classifyTransaction", () => {
     expect(classifyTransaction({ amount: -1150, counterpartyName: "J. Peeters", description: "Huur november" }).categoryId).toBe("housing");
   });
 
+  it("treats tax refunds as income and hospitalisation insurance as a bill", () => {
+    const tax = classifyTransaction({ amount: 1250, description: "Belastingterugbetaling FOD Financien" });
+    expect([tax.kind, tax.categoryId]).toEqual(["income", "other_income"]);
+    const dkv = classifyTransaction({ amount: -24.5, description: "DKV Belgium hospitalisatieverzekering" });
+    expect([dkv.merchantKey, dkv.categoryId]).toEqual(["insurance", "bills"]);
+  });
+
+  it("uses shop-type keywords for merchants outside the catalogue", () => {
+    const bakery = classifyTransaction({ amount: -8.4, description: "BETALING MET DEBETKAART BAKKERIJ VAN DAMME LEUVEN" });
+    expect([bakery.merchant, bakery.categoryId]).toEqual(["Bakkerij Van Damme", "groceries"]);
+    expect(classifyTransaction({ amount: -64, description: "BRASSERIE DE MARKT LEUVEN" }).categoryId).toBe("restaurants");
+  });
+
   it("applies user rules before automatic rules", () => {
     const c = classifyTransaction({ amount: -12, description: "BAKKERIJ VAN DAMME" }, { rules: [{ pattern: "van damme", category_id: "business" }] });
     expect([c.categoryId, c.categorySource]).toEqual(["business", "rule"]);
@@ -80,6 +93,11 @@ describe("detectRecurring", () => {
     const [c] = detectRecurring(monthly("spotify", [11.99, 11.99, 11.99, 11.99, 12.99]), today);
     expect(c.priceIncrease).toBe(true);
     expect(c.previousAmount).toBe(11.99);
+  });
+
+  it("remembers a price change that happened a few charges ago", () => {
+    const [c] = detectRecurring(monthly("netflix", [13.99, 13.99, 15.99, 15.99, 15.99]), today);
+    expect([c.previousAmount, c.priceChangedAt, c.priceIncrease]).toEqual([13.99, "2026-08-05", true]);
   });
 
   it("ignores everyday shopping at the same supermarket", () => {

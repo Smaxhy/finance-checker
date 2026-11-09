@@ -30,6 +30,17 @@ const SALARY_WORDS = /\b(loon|salaris|salaire|wedde|payroll|salary|r[ée]mun[ée
 const BENEFIT_WORDS = /groeipakket|famiris|famiwal|kids\s*life|kinderbijslag|allocations?\s+familiales|\brva\b|\bonem\b|uitkering/i;
 const REFUND_WORDS = /terugbetaling|remboursement|refund|retour|teruggave|rembourse|reimburse|credit\s+note|creditnota/i;
 const RENT_WORDS = /\b(huur|loyer|rent)\b|syndic|woonkrediet|hypothe|cr[ée]dit\s+hypoth/i;
+const TAX_WORDS = /belasting|imp[ôo]ts?\b|fod\s*financi|spf\s*finances|myminfin|tax\s*(refund|return)|vlaamse\s*belastingdienst/i;
+// Generic shop types for merchants that aren't in the catalogue (keeps the merchant name, sets the category).
+const KEYWORD_CATEGORIES: [RegExp, string][] = [
+  [/\b(bakkerij|bakker|boulangerie|p[âa]tisserie|bakery|slagerij|beenhouwerij|boucherie|butcher|kaashandel|fromagerie|groentenwinkel|primeur|supermarkt|supermarch[ée]|[ée]picerie|nachtwinkel|night\s*shop)\b/i, "groceries"],
+  [/\b(restaurant|resto|brasserie|bistro|caf[ée]|eetcaf[ée]|frituur|friterie|frietkot|pizzeria|sushi|kebab|snack|tearoom|lunchbar|bar\s|pub\b|taverne)/i, "restaurants"],
+  [/\b(apotheek|pharmacie|tandarts|dentiste|kinesist|kin[ée]|fysio|opticien|optiek|huisarts|dokter|m[ée]decin|fitness|sportschool|yoga|padel)\b/i, "health"],
+  [/\b(parking|parkeer|taxi|tankstation|station\s*service|carwash|garage)\b/i, "transport"],
+  [/\b(hotel|h[ôo]tel|camping|airline|luchthaven|a[ée]roport|airport)\b/i, "travel"],
+  [/\b(cinema|bioscoop|cin[ée]ma|theater|th[ée][âa]tre|concert|museum|mus[ée]e|ticket)/i, "entertainment"],
+  [/\b(boekhandel|librairie|bookshop|kledij|v[êe]tements|schoenen|chaussures|electro|meubel|meubles|tuincentrum|jardinerie)\b/i, "shopping"],
+];
 const FEE_WORDS = /\b(kosten|frais|fee|charges?\s+bancaires|beheerskosten|rekeningkosten|commission)\b/i;
 
 // ISO 18245 merchant category codes -> category
@@ -97,6 +108,7 @@ export function classifyTransaction(
   // 4. Income.
   if (inflow) {
     if (SALARY_WORDS.test(text)) return { ...base, kind: "income", categoryId: "salary", categorySource: "auto" };
+    if (TAX_WORDS.test(text)) return { ...base, kind: "income", categoryId: "other_income", categorySource: "auto" };
     if (BENEFIT_WORDS.test(text)) return { ...base, kind: "income", categoryId: "other_income", categorySource: "auto" };
     // Money back from a known merchant / health insurer = refund that reduces spending.
     if (merchant.entry && merchant.entry.category !== "other") {
@@ -109,6 +121,8 @@ export function classifyTransaction(
   // 5. Outflows.
   if (merchant.entry) return { ...base, kind: "expense", categoryId: merchant.entry.category, categorySource: "auto" };
   if (RENT_WORDS.test(text)) return { ...base, kind: "expense", categoryId: "housing", categorySource: "auto" };
+  const keyword = KEYWORD_CATEGORIES.find(([re]) => re.test(text));
+  if (keyword) return { ...base, kind: "expense", categoryId: keyword[1], categorySource: "auto" };
   const mccCategory = categoryFromMcc(tx.mcc);
   if (mccCategory) return { ...base, kind: "expense", categoryId: mccCategory, categorySource: "auto" };
   if (FEE_WORDS.test(text) && Math.abs(tx.amount) < 50) return { ...base, kind: "fee", categoryId: "bills", categorySource: "auto" };

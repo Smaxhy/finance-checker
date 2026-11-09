@@ -24,12 +24,8 @@ export interface TransactionFilters {
   subscriptionId?: string;
 }
 
-export async function listTransactions(supabase: AppSupabaseClient, f: TransactionFilters = {}) {
-  let q = supabase
-    .from("transactions")
-    .select("*", { count: "exact" })
-    .order("booked_at", { ascending: false })
-    .order("created_at", { ascending: false });
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyTxFilters<Q extends { gte: any; lte: any; eq: any; in: any; or: any }>(q: Q, f: TransactionFilters): Q {
   if (f.from) q = q.gte("booked_at", f.from);
   if (f.to) q = q.lte("booked_at", f.to);
   if (f.categoryId) q = q.eq("category_id", f.categoryId);
@@ -40,14 +36,37 @@ export async function listTransactions(supabase: AppSupabaseClient, f: Transacti
   if (f.subscriptionId) q = q.eq("subscription_id", f.subscriptionId);
   if (f.minAmount) q = q.or(`amount.gte.${f.minAmount},amount.lte.${-f.minAmount}`);
   if (f.q) {
-    const term = f.q.replace(/[%,()]/g, " ").trim();
+    // Strip characters that have meaning in PostgREST filter syntax.
+    const term = f.q.replace(/[%,()*\\]/g, " ").trim();
     if (term) q = q.or(`description.ilike.%${term}%,merchant.ilike.%${term}%,counterparty_name.ilike.%${term}%,notes.ilike.%${term}%`);
   }
+  return q;
+}
+
+export async function listTransactions(supabase: AppSupabaseClient, f: TransactionFilters = {}) {
+  let q = supabase.from("transactions").select("*", { count: "exact" }).order("booked_at", { ascending: false }).order("created_at", { ascending: false });
+  q = applyTxFilters(q, f);
   const limit = Math.min(f.limit ?? 100, 1000);
   q = q.range(f.offset ?? 0, (f.offset ?? 0) + limit - 1);
   const res = await q;
   const rows = must(res, "transactions") as Record<string, unknown>[];
   return { rows: rows.map(mapTx), count: res.count ?? rows.length };
+}
+
+/** Money in / out for everything matching the filters (transfers reported separately). */
+export async function transactionTotals(supabase: AppSupabaseClient, f: TransactionFilters = {}) {
+  const q = applyTxFilters(supabase.from("transactions").select("amount, kind").limit(20000), f);
+  const rows = must(await q, "transaction totals") as { amount: number; kind: TransactionKind }[];
+  let moneyOut = 0;
+  let moneyIn = 0;
+  let transfers = 0;
+  for (const r of rows) {
+    const a = Number(r.amount);
+    if (r.kind === "transfer") transfers += Math.abs(a);
+    else if (a < 0) moneyOut += -a;
+    else moneyIn += a;
+  }
+  return { moneyOut, moneyIn, transfers, count: rows.length };
 }
 
 export async function spendingByPeriod(supabase: AppSupabaseClient, from: string, to: string, grain: "day" | "week" | "month", userId?: string) {
@@ -95,6 +114,13 @@ export function densify(points: PeriodPoint[], from: string, to: string, grain: 
     cursor = grain === "month" ? addMonths(cursor, 1) : addDays(cursor, grain === "week" ? 7 : 1);
   }
   return out;
+}
+
+/** Drop leading periods with no activity (e.g. before the first import), keeping at least `min`. */
+export function trimLeadingEmpty(points: PeriodPoint[], min = 3): PeriodPoint[] {
+  const first = points.findIndex((p) => p.spent !== 0 || p.income !== 0);
+  if (first <= 0) return points;
+  return points.slice(Math.min(first, Math.max(0, points.length - min)));
 }
 
 export interface MonthSummary {

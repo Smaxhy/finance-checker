@@ -90,7 +90,8 @@ export default async function OverviewPage() {
   const subs = (must(subsRes, "subscriptions") as Subscription[]).map((s) => ({ ...s, amount: s.amount === null ? null : Number(s.amount) }));
   const activeSubs = subs.filter((s) => s.status === "active" || s.status === "trial" || s.status === "cancellation_pending");
   const recurringMonthly = activeSubs.reduce((a, s) => a + monthlyEquivalent(s.amount, s.billing_cycle), 0);
-  const newlyDetected = subs.filter((s) => !s.user_confirmed && s.detection_source !== "manual" && Date.now() - Date.parse(s.created_at) < 21 * 86_400_000).slice(0, 4);
+  const nowMs = today.getTime();
+  const newlyDetected = subs.filter((s) => !s.user_confirmed && s.detection_source !== "manual" && nowMs - Date.parse(s.created_at) < 21 * 86_400_000).slice(0, 4);
   const emails = must(emailsRes, "emails") as EmailRecord[];
 
   const dailySeries = densify(dailyNow, month.from, toISODate(today), "day");
@@ -105,16 +106,14 @@ export default async function OverviewPage() {
   // Cumulative pace: this month vs last month.
   const prevDense = densify(dailyPrev, prevMonth.from, prevMonth.to, "day");
   const maxDay = Math.max(daysInMonth(today), prevDense.length);
-  let accNow = 0;
-  let accPrev = 0;
-  const cumulative = Array.from({ length: maxDay }, (_, i) => {
-    const day = i + 1;
+  const cumulative: { day: number; current?: number; previous?: number }[] = [];
+  for (let i = 0, accNow = 0, accPrev = 0; i < maxDay; i++) {
     const now = dailySeries[i];
     const prev = prevDense[i];
     if (prev) accPrev += prev.spent;
     if (now) accNow += now.spent;
-    return { day, current: now ? Math.round(accNow * 100) / 100 : undefined, previous: prev ? Math.round(accPrev * 100) / 100 : undefined };
-  });
+    cumulative.push({ day: i + 1, current: now ? Math.round(accNow * 100) / 100 : undefined, previous: prev ? Math.round(accPrev * 100) / 100 : undefined });
+  }
 
   const balanceAccounts = accounts.filter((a) => a.include_in_totals && a.balance !== null);
   const balance = balanceAccounts.reduce((a, acc) => a + (acc.balance ?? 0), 0);

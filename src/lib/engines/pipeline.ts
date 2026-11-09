@@ -78,9 +78,9 @@ export async function runPipeline(supabase: AppSupabaseClient, userId: string, o
         detection_confidence: c.confidence,
       };
       if (!USER_MANAGED_STATUSES.has(current.status)) update.next_payment_date = c.nextDate;
-      if (c.previousAmount !== null && current.price_changed_at !== c.lastDate && Number(current.amount) !== c.amount) {
+      if (c.previousAmount !== null && c.priceChangedAt && current.price_changed_at !== c.priceChangedAt) {
         update.previous_amount = c.previousAmount;
-        update.price_changed_at = c.lastDate;
+        update.price_changed_at = c.priceChangedAt;
       }
       // A trial that has started charging has converted to a paid plan.
       if (current.status === "trial" && current.trial_ends_at && c.lastDate >= current.trial_ends_at) update.status = "active";
@@ -105,7 +105,7 @@ export async function runPipeline(supabase: AppSupabaseClient, userId: string, o
           last_payment_date: c.lastDate,
           last_payment_amount: c.amount,
           previous_amount: c.previousAmount,
-          price_changed_at: c.previousAmount !== null ? c.lastDate : null,
+          price_changed_at: c.priceChangedAt,
           started_at: c.firstDate,
           cancel_url: entry?.subscription?.cancelUrl ?? null,
           cancel_instructions: entry?.subscription?.steps.join("\n") ?? null,

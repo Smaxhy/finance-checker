@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { CategoryIcon } from "@/components/category-icon";
 import { DemoBadge } from "@/components/ui/badge";
-import { formatDate, formatMoney, formatTime, relativeDay } from "@/lib/format";
+import { dayParts, formatDate, formatMoney, formatTime, relativeDay } from "@/lib/format";
 import type { Category, EmailCategory, EmailRecord, EventKind, Transaction } from "@/lib/types";
 import type { UpcomingItem } from "@/lib/engines/upcoming";
 import { cn } from "@/lib/utils";
@@ -102,12 +102,8 @@ export function UpcomingList({ items, currency = "EUR", compact = false }: { ite
           <li key={item.id}>
             <Link href={item.href} className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-surface-2">
               <div className="w-12 shrink-0 text-center">
-                <p className="text-[10.5px] font-medium tracking-wide text-muted uppercase">
-                  {new Date(item.date.length === 10 ? item.date + "T12:00:00" : item.date).toLocaleDateString("en-BE", { month: "short" })}
-                </p>
-                <p className="text-[16px] leading-tight font-semibold tabular">
-                  {new Date(item.date.length === 10 ? item.date + "T12:00:00" : item.date).getDate()}
-                </p>
+                <p className="text-[10.5px] font-medium tracking-wide text-muted uppercase">{dayParts(item.date).month}</p>
+                <p className="text-[16px] leading-tight font-semibold tabular">{dayParts(item.date).day}</p>
               </div>
               <span
                 className={cn(

@@ -10,7 +10,9 @@ export async function loadDemoData(): Promise<{ ok: boolean; message: string }> 
     const seeded = await seedDemoData(supabase, user.id);
     // Run the real detection pipeline over the sample data.
     await runPipeline(supabase, user.id, { demo: true });
-    await applyDemoSubscriptionStates(supabase);
+    await applyDemoSubscriptionStates(supabase, user.id);
+    // Re-run notifications so they reflect the demo states (e.g. pending cancellation).
+    await runPipeline(supabase, user.id, { demo: true });
     await supabase.rpc("log_audit", { p_action: "demo.load", p_details: seeded });
     revalidatePath("/", "layout");
     return { ok: true, message: `${seeded.transactions} transactions, ${seeded.emails} emails and ${seeded.events} events - all marked DEMO.` };
