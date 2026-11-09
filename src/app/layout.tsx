@@ -12,10 +12,19 @@ export const metadata: Metadata = {
   title: { default: "Command Centre", template: "%s · Command Centre" },
   description: "Your personal finance, subscriptions, email and planning command centre.",
   robots: { index: false, follow: false },
+  applicationName: "Command Centre",
+  appleWebApp: { capable: true, title: "Command Centre", statusBarStyle: "black-translucent" },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#09090b",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover", // lets the bottom bar respect the iPhone home indicator
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#09090b" },
+    { media: "(prefers-color-scheme: light)", color: "#f7f7f8" },
+  ],
   colorScheme: "dark light",
 };
 
@@ -29,6 +38,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           <Toaster
             theme={theme}
             position="bottom-right"
+            mobileOffset={{ bottom: "calc(84px + env(safe-area-inset-bottom))" }}
             toastOptions={{
               className: "!bg-surface !border-border !text-fg !shadow-card !rounded-xl !text-[13px]",
             }}

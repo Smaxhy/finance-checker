@@ -26,17 +26,17 @@ export function NotificationBell({ notifications, unreadCount }: { notifications
   return (
     <Popover.Root>
       <Popover.Trigger asChild>
-        <button className="relative rounded-lg p-2 text-muted transition-colors hover:bg-surface-2 hover:text-fg" aria-label={`Notifications (${unreadCount} unread)`}>
+        <button className="relative flex size-10 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-fg sm:size-8" aria-label={`Notifications (${unreadCount} unread)`}>
           <Bell className="size-4" />
           {unreadCount > 0 && (
-            <span className="absolute top-1 right-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-accent-strong px-1 text-[9.5px] font-semibold text-white">
+            <span className="absolute top-1.5 right-1.5 flex sm:top-0.5 sm:right-0.5 h-3.5 min-w-3.5 items-center justify-center rounded-full bg-accent-strong px-1 text-[9.5px] font-semibold text-white">
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}
         </button>
       </Popover.Trigger>
       <Popover.Portal>
-        <Popover.Content align="end" sideOffset={8} className="card z-50 w-[380px] max-w-[calc(100vw-24px)] p-0 data-[state=open]:animate-pop">
+        <Popover.Content align="end" sideOffset={8} collisionPadding={8} className="card z-50 w-[380px] max-w-[calc(100vw-16px)] p-0 data-[state=open]:animate-pop">
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <p className="text-[13px] font-medium">Notifications</p>
             <button
@@ -47,7 +47,7 @@ export function NotificationBell({ notifications, unreadCount }: { notifications
               <CheckCheck className="size-3.5" /> Mark all read
             </button>
           </div>
-          <div className="max-h-[420px] overflow-y-auto">
+          <div className="max-h-[min(420px,65dvh)] overflow-y-auto overscroll-contain">
             {notifications.length === 0 ? (
               <p className="px-4 py-10 text-center text-[12.5px] text-muted">You’re all caught up.</p>
             ) : (

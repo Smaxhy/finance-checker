@@ -17,13 +17,13 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
   };
 
   const itemClass =
-    "flex h-9 cursor-default items-center gap-2.5 rounded-lg px-2.5 text-[13px] text-secondary data-[selected=true]:bg-surface-2 data-[selected=true]:text-fg [&_svg]:size-4 [&_svg]:text-muted";
+    "flex h-11 cursor-default items-center gap-2.5 rounded-lg px-2.5 text-[14px] text-secondary sm:h-9 sm:text-[13px] data-[selected=true]:bg-surface-2 data-[selected=true]:text-fg [&_svg]:size-4 [&_svg]:text-muted";
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-[var(--overlay)] backdrop-blur-[2px] data-[state=open]:animate-fade-in" />
-        <Dialog.Content className="card fixed top-[14vh] left-1/2 z-50 w-[calc(100vw-32px)] max-w-xl -translate-x-1/2 overflow-hidden p-0 data-[state=open]:animate-pop">
+        <Dialog.Content className="card fixed top-[max(8px,env(safe-area-inset-top))] left-1/2 z-50 w-[calc(100vw-16px)] max-w-xl -translate-x-1/2 overflow-hidden p-0 data-[state=open]:animate-pop sm:top-[14vh] sm:w-[calc(100vw-32px)]">
           <Dialog.Title className="sr-only">Command palette</Dialog.Title>
           <Dialog.Description className="sr-only">Search pages and actions</Dialog.Description>
           <Command label="Command palette" loop>
@@ -36,7 +36,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
                 className="h-12 flex-1 bg-transparent text-[14px] outline-none placeholder:text-muted"
               />
             </div>
-            <Command.List className="max-h-[360px] overflow-y-auto p-2">
+            <Command.List className="max-h-[min(360px,60dvh)] overflow-y-auto overscroll-contain p-2">
               <Command.Empty className="py-8 text-center text-[13px] text-muted">No results.</Command.Empty>
               {query.trim().length > 1 && (
                 <Command.Group heading="Search" className="mb-1 [&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[11.5px] [&_[cmdk-group-heading]]:text-muted">

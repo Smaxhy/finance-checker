@@ -144,7 +144,7 @@ export default async function ReportsPage({ searchParams }: PageProps<"/insights
           <Card>
             <CardHeader title="Spending by category" description={`${formatMonth(range.from)} vs ${formatMonth(prevRange.from)}${isCurrent ? " (full month)" : ""}`} />
             <div className="overflow-x-auto px-2 pb-3">
-              <table className="data-table text-[13px]">
+              <table className="data-table m-hide-c3 m-hide-c5 text-[13px]">
                 <thead>
                   <tr>
                     <th>Category</th>
@@ -285,7 +285,7 @@ export default async function ReportsPage({ searchParams }: PageProps<"/insights
           <Card>
             <CardHeader title="Year overview" description={`${formatMonth(`${yearKeys[0]}-01`)} - ${formatMonth(range.from)}`} />
             <div className="overflow-x-auto px-2 pb-3">
-              <table className="data-table text-[13px]">
+              <table className="data-table m-hide-c5 text-[13px]">
                 <thead>
                   <tr>
                     <th>Month</th>

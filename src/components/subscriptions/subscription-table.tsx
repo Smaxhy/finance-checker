@@ -79,7 +79,7 @@ export function SubscriptionTable({
   return (
     <div>
       {searchable && rows.length > 6 && (
-        <div className="relative mb-3 max-w-xs">
+        <div className="relative mb-3 sm:max-w-xs">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted" />
           <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Filter by name or payment method…" className="pl-8" aria-label="Filter subscriptions" />
         </div>
@@ -87,16 +87,47 @@ export function SubscriptionTable({
       {sorted.length === 0 ? (
         <p className="py-8 text-center text-[13px] text-muted">{query ? "No subscriptions match that filter." : emptyMessage}</p>
       ) : (
-        <div className="-mx-5 overflow-x-auto">
-          <table className="data-table min-w-[880px]">
+        <>
+        {/* Phones: one tappable row per subscription */}
+        <ul className="-mx-4 divide-y divide-border sm:hidden">
+          {sorted.map((s) => {
+            const next = s.status === "trial" ? s.trial_ends_at : isCharging(s) ? s.next_payment_date : null;
+            const overdue = next !== null && isCharging(s) && next < new Date().toISOString().slice(0, 10);
+            return (
+              <li key={s.id}>
+                <Link href={`/subscriptions/${s.id}`} className="flex items-center gap-3 px-4 py-3 active:bg-surface-2">
+                  <CategoryIcon icon={categoryIcons[s.category_id ?? "subscriptions"] ?? "repeat"} className="size-9" />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-1.5 text-[14px] font-medium">
+                      <span className="truncate">{s.name}</span>
+                      {s.is_demo && <DemoBadge />}
+                    </span>
+                    <span className={cn("block truncate text-[12.5px] text-muted", overdue && "text-warning")}>
+                      {next ? (s.status === "trial" ? `Trial ends ${inDays(next)}` : overdue ? "Expected - not seen yet" : `Next ${formatDate(next, "short")} · ${inDays(next)}`) : (s.payment_method ?? "No upcoming charge")}
+                    </span>
+                  </span>
+                  <span className="flex shrink-0 flex-col items-end gap-1">
+                    <span className="text-[14px] font-medium tabular">
+                      {formatMoney(s.amount, s.currency)}
+                      <span className="text-[12px] font-normal text-muted">/{CYCLE_UNIT[s.billing_cycle]}</span>
+                    </span>
+                    <StatusBadge status={s.status} dismissed={s.dismissed} />
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+        <div className="-mx-4 hidden overflow-x-auto sm:-mx-5 sm:block">
+          <table className="data-table min-w-[600px]">
             <thead>
               <tr>
                 {header("name", "Subscription", "pl-5")}
                 <th className="text-right">Price</th>
-                {header("monthly", "Per month · year", "text-right")}
+                {header("monthly", "Per month · year", "hidden text-right xl:table-cell")}
                 {header("next", "Next payment")}
-                {header("last", "Last payment")}
-                <th>Payment method</th>
+                {header("last", "Last payment", "hidden xl:table-cell")}
+                <th className="hidden min-[1400px]:table-cell">Payment method</th>
                 {header("status", "Status · source", "pr-5")}
               </tr>
             </thead>
@@ -123,7 +154,7 @@ export function SubscriptionTable({
                       <span className="tabular text-[13px] font-medium">{formatMoney(s.amount, s.currency)}</span>
                       <span className="text-[12px] text-muted"> / {CYCLE_UNIT[s.billing_cycle]}</span>
                     </td>
-                    <td className="text-right whitespace-nowrap">
+                    <td className="hidden text-right whitespace-nowrap xl:table-cell">
                       <p className="text-[13px] tabular">{formatMoney(monthly, s.currency)}</p>
                       <p className="text-[12px] text-muted tabular">{formatMoney(yearlyEquivalent(s.amount, s.billing_cycle), s.currency, { decimals: 0 })} / yr</p>
                     </td>
@@ -137,7 +168,7 @@ export function SubscriptionTable({
                         <span className="text-[13px] text-muted">—</span>
                       )}
                     </td>
-                    <td className="whitespace-nowrap">
+                    <td className="hidden whitespace-nowrap xl:table-cell">
                       {s.last_payment_date ? (
                         <>
                           <p className="text-[13px]">{formatDate(s.last_payment_date, "medium")}</p>
@@ -147,7 +178,7 @@ export function SubscriptionTable({
                         <span className="text-[13px] text-muted">—</span>
                       )}
                     </td>
-                    <td className="max-w-40 truncate text-[12.5px] text-secondary">{s.payment_method ?? <span className="text-muted">Unknown</span>}</td>
+                    <td className="hidden max-w-40 truncate text-[12.5px] text-secondary min-[1400px]:table-cell">{s.payment_method ?? <span className="text-muted">Unknown</span>}</td>
                     <td className="pr-5">
                       <StatusBadge status={s.status} dismissed={s.dismissed} />
                       <div className="mt-0.5">
@@ -160,6 +191,7 @@ export function SubscriptionTable({
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   );

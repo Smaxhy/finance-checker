@@ -59,8 +59,8 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/fin
         description="Every payment, purchase, transfer and refund. Transfers between your own accounts never count as income or spending."
         actions={
           <>
-            <ButtonLink href={`/api/reports/transactions?${exportQs}`} variant="ghost" prefetch={false}>
-              <Download /> Export
+            <ButtonLink href={`/api/reports/transactions?${exportQs}`} variant="ghost" prefetch={false} aria-label="Export CSV">
+              <Download /> <span className="hidden sm:inline">Export</span>
             </ButtonLink>
             <CsvImportButton />
             <AddTransactionButton categories={categories} />
@@ -69,12 +69,12 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/fin
       />
 
       <Card className="overflow-hidden">
-        <div className="space-y-3 border-b border-border p-4">
+        <div className="space-y-3 border-b border-border p-3 sm:p-4">
           <TransactionFilters
             categories={categories.map((c) => ({ value: c.id, label: c.name }))}
             accounts={accounts.map((a) => ({ value: a.id, label: a.name }))}
           />
-          <div className="flex flex-wrap gap-x-6 gap-y-1 text-[12.5px] text-muted">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12.5px] text-muted sm:gap-x-6">
             <span>
               <span className="font-medium text-fg tabular">{formatNumber(totals.count)}</span> transactions · {period.label}
             </span>

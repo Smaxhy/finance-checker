@@ -81,8 +81,8 @@ export default async function CancelledPage() {
           {cancelled.length === 0 ? (
             <EmptyState icon={XCircle} title="No confirmed cancellations" description="When you confirm a cancellation on a subscription's page, it moves here and we keep watching for unexpected charges." className="py-8" />
           ) : (
-            <div className="-mx-5 overflow-x-auto">
-              <table className="data-table min-w-[760px]">
+            <div className="-mx-4 overflow-x-auto sm:-mx-5">
+              <table className="data-table stack-sm t-hide-c4 xl:min-w-[760px]">
                 <thead>
                   <tr>
                     <th className="pl-5">Subscription</th>
@@ -103,13 +103,13 @@ export default async function CancelledPage() {
                             {s.name} {s.is_demo && <DemoBadge />}
                           </Link>
                         </td>
-                        <td className="text-right text-[13px] whitespace-nowrap tabular">
+                        <td data-label="Was" className="text-right text-[13px] whitespace-nowrap tabular">
                           {formatMoney(s.amount, s.currency)} <span className="text-muted">/ {CYCLE_UNIT[s.billing_cycle]}</span>
                         </td>
-                        <td className="text-[13px] whitespace-nowrap">{s.cancellation_confirmed_at ? formatDate(s.cancellation_confirmed_at, "medium") : "—"}</td>
-                        <td className="max-w-56 truncate text-[12.5px] text-secondary">{s.cancellation_reference ?? <span className="text-muted">—</span>}</td>
-                        <td className="text-right text-[13px] text-positive tabular">{formatMoney(yearlyEquivalent(s.amount, s.billing_cycle), s.currency, { decimals: 0 })}</td>
-                        <td className="pr-5">
+                        <td data-label="Confirmed" className="text-[13px] whitespace-nowrap">{s.cancellation_confirmed_at ? formatDate(s.cancellation_confirmed_at, "medium") : "—"}</td>
+                        <td data-label="Reference" className="max-w-56 truncate text-[12.5px] text-secondary">{s.cancellation_reference ?? <span className="text-muted">—</span>}</td>
+                        <td data-label="Saved per year" className="text-right text-[13px] text-positive tabular">{formatMoney(yearlyEquivalent(s.amount, s.billing_cycle), s.currency, { decimals: 0 })}</td>
+                        <td data-label="Since then" className="pr-5">
                           {after.length ? (
                             <span className="inline-flex items-center gap-1 text-[12.5px] font-medium text-danger">
                               <OctagonAlert className="size-3.5" /> Charged {after.length}× since

@@ -22,6 +22,8 @@ It connects (read-only) to Gmail, Google Calendar and your bank, organises every
 
 Keyboard: **⌘K / Ctrl+K** opens the command palette (navigate, search transactions/emails, ask the assistant, quick-add).
 
+**On your phone:** the layout adapts below 1024px. It has a bottom tab bar (Overview, Money, Subscriptions, Calendar, More), bottom-sheet dialogs, tappable list layouts instead of wide tables, a day strip for the week view, and 16px form fields so iOS never zooms in. Safe-area insets are respected on notched iPhones. The app is installable: in Safari use *Share → Add to Home Screen*, in Chrome use *Install app*. It then opens full-screen with its own icon and shortcuts (add transaction, upcoming, subscriptions).
+
 ---
 
 ## Stack

@@ -167,8 +167,8 @@ export default async function SubscriptionDetailPage({ params }: { params: Promi
                       />
                     </div>
                   )}
-                  <div className="-mx-5 overflow-x-auto">
-                    <table className="data-table min-w-[520px]">
+                  <div className="-mx-4 overflow-x-auto sm:-mx-5">
+                    <table className="data-table m-hide-c2 sm:min-w-[520px]">
                       <thead>
                         <tr>
                           <th className="pl-5">Date</th>

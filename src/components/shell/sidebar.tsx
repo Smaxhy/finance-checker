@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import * as Tooltip from "@radix-ui/react-tooltip";
-import { ChevronRight, Command, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { ChevronRight, Command, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NAV, isActive, type NavItem } from "./nav";
 import { UserMenu } from "./user-menu";
@@ -42,8 +42,8 @@ export function Sidebar({
     <Tooltip.Provider delayDuration={300}>
       <aside
         className={cn(
-          "no-print fixed inset-y-0 left-0 z-40 flex flex-col border-r border-border bg-bg-subtle transition-[width,transform] duration-200 ease-out lg:sticky lg:top-0 lg:h-screen lg:translate-x-0",
-          isCollapsed ? "w-[60px]" : "w-[248px]",
+          "no-print fixed inset-y-0 left-0 z-40 flex flex-col border-r border-border bg-bg-subtle pt-safe pb-safe transition-[width,transform] duration-200 ease-out lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 lg:pt-0 lg:pb-0",
+          isCollapsed ? "w-[60px]" : "w-[min(300px,85vw)] lg:w-[248px]",
           mobileOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full",
         )}
         aria-label="Main navigation"
@@ -62,6 +62,11 @@ export function Sidebar({
               aria-label="Collapse sidebar"
             >
               <PanelLeftClose className="size-4" />
+            </button>
+          )}
+          {mobileOpen && (
+            <button onClick={onNavigate} className="ml-auto rounded-md p-2 text-muted transition-colors hover:bg-surface-2 hover:text-fg lg:hidden" aria-label="Close navigation">
+              <X className="size-4.5" />
             </button>
           )}
         </div>
@@ -118,7 +123,7 @@ function NavEntry({
   const exact = pathname === item.href;
   const Icon = item.icon;
   const rowClass = cn(
-    "group flex h-8 w-full items-center gap-2.5 rounded-lg px-2 text-[13px] transition-colors duration-150",
+    "group flex h-10 w-full items-center gap-2.5 rounded-lg px-2 text-[14px] transition-colors duration-150 lg:h-8 lg:text-[13px]",
     exact ? "bg-surface-3 text-fg" : active ? "text-fg" : "text-secondary hover:bg-surface-2 hover:text-fg",
     collapsed && "justify-center px-0",
   );
@@ -152,7 +157,7 @@ function NavEntry({
         {item.children && (
           <button
             onClick={onToggle}
-            className="absolute right-1 rounded-md p-1 text-muted opacity-70 transition hover:bg-surface-3 hover:text-fg hover:opacity-100"
+            className="absolute right-1 rounded-md p-2 text-muted opacity-70 transition hover:bg-surface-3 hover:text-fg hover:opacity-100 lg:p-1"
             aria-label={open ? `Collapse ${item.label}` : `Expand ${item.label}`}
             aria-expanded={open}
           >
@@ -162,7 +167,7 @@ function NavEntry({
       </div>
       {item.children && (
         <div className={cn("grid transition-[grid-template-rows] duration-200 ease-out", open ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}>
-          <ul className="overflow-hidden">
+          <ul className="overflow-hidden" inert={!open}>
             <div className="relative ml-[17px] space-y-0.5 border-l border-border py-0.5 pl-2.5">
               {item.children.map((child) => {
                 const childActive = isActive(pathname, child.href);
@@ -173,7 +178,7 @@ function NavEntry({
                       onClick={onNavigate}
                       aria-current={childActive ? "page" : undefined}
                       className={cn(
-                        "flex h-7 items-center rounded-md px-2 text-[12.5px] transition-colors duration-150",
+                        "flex h-9 items-center rounded-md px-2 text-[13.5px] transition-colors duration-150 lg:h-7 lg:text-[12.5px]",
                         childActive ? "bg-surface-3 text-fg" : "text-muted hover:bg-surface-2 hover:text-fg",
                       )}
                     >

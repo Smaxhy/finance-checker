@@ -173,7 +173,7 @@ export default async function AnalyticsPage({ searchParams }: PageProps<"/financ
         <Card>
           <CardHeader title="Month-over-month by category" description={`${formatMonth(today)} so far vs the same ${today.getDate()} days of ${formatMonth(addMonths(today, -1))}; full last month and 3-month average for context`} />
           <div className="overflow-x-auto">
-            <table className="data-table">
+            <table className="data-table m-hide-c3 m-hide-c5 m-hide-c6">
               <thead>
                 <tr>
                   <th>Category</th>
@@ -264,7 +264,7 @@ export default async function AnalyticsPage({ searchParams }: PageProps<"/financ
       <Card>
         <CardHeader title="Yearly overview" description={`Last ${months12.length} months · ${formatMoney(yearIncome, currency, { decimals: 0 })} in, ${formatMoney(yearSpent, currency, { decimals: 0 })} out`} />
         <div className="overflow-x-auto">
-          <table className="data-table">
+          <table className="data-table m-hide-c5">
             <thead>
               <tr>
                 <th>Month</th>

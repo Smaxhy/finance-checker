@@ -61,7 +61,7 @@ export default async function SubscriptionsOverviewPage({ searchParams }: { sear
         </Card>
       ) : (
         <>
-          <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5" aria-label="Subscription totals">
+          <section className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-5 [&>*:first-child]:col-span-2 sm:[&>*:first-child]:col-span-1" aria-label="Subscription totals">
             <StatTile label="Recurring per month" icon={Wallet} value={formatMoney(totals.monthly, currency)} hint={`${formatMoney(totals.yearly, currency, { decimals: 0 })} per year`} />
             <StatTile
               label="Subscriptions"

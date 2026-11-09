@@ -200,7 +200,7 @@ export function AssistantChat({ enabled, initialQuestion }: { enabled: boolean; 
         )}
       </div>
 
-      <div className="sticky bottom-0 mx-auto mt-4 w-full max-w-3xl bg-gradient-to-t from-bg via-bg to-transparent pt-4 pb-2">
+      <div className="sticky bottom-[calc(60px+env(safe-area-inset-bottom))] mx-auto mt-4 w-full max-w-3xl lg:bottom-0 bg-gradient-to-t from-bg via-bg to-transparent pt-4 pb-2">
         <div className={cn("card flex items-end gap-2 p-2 transition-colors focus-within:border-accent/60", !enabled && "opacity-60")}>
           <textarea
             value={input}

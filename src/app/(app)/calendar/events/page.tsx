@@ -132,8 +132,39 @@ export default async function EventsPage({ searchParams }: PageProps<"/calendar/
 
       <CalendarSetupNotice state={connection} googleConfigured={integrationStatus().google.configured} missing={integrationStatus().google.missing} />
 
-      <section aria-label="Weekly overview" className="card mb-4 overflow-x-auto p-0">
-        <div className="grid min-w-[840px] grid-cols-7">
+      {/* Phones: a 7-day strip; the agenda below shows the chosen day. */}
+      <nav aria-label="Days of this week" className="mb-4 grid grid-cols-7 gap-1 md:hidden">
+        {days.map((day) => {
+          const count = (byDay.get(day) ?? []).length;
+          const selected = day === selectedDay;
+          return (
+            <Link
+              key={day}
+              href={`/calendar/events?week=${weekStart}&day=${day}`}
+              scroll={false}
+              aria-current={selected ? "date" : undefined}
+              aria-label={`${formatDayKey(day, { weekday: "long", day: "numeric", month: "long" })}, ${count} item${count === 1 ? "" : "s"}`}
+              className={cn(
+                "flex flex-col items-center gap-1 rounded-xl py-2 ring-1 transition-colors",
+                selected ? "bg-accent-soft ring-accent/40" : "bg-surface ring-border active:bg-surface-2",
+              )}
+            >
+              <span className="text-[10.5px] font-medium text-muted uppercase">{formatDayKey(day, { weekday: "short" }).slice(0, 2)}</span>
+              <span className={cn("flex size-7 items-center justify-center rounded-full text-[14px] font-semibold tabular", day === today && "bg-accent-strong text-white")}>
+                {Number(day.slice(8, 10))}
+              </span>
+              <span className="flex h-1.5 items-center gap-0.5">
+                {Array.from({ length: Math.min(count, 3) }, (_, k) => (
+                  <span key={k} className="size-1.5 rounded-full bg-accent" />
+                ))}
+              </span>
+            </Link>
+          );
+        })}
+      </nav>
+
+      <section aria-label="Weekly overview" className="card mb-4 hidden overflow-x-auto p-0 md:block">
+        <div className="grid min-w-[700px] grid-cols-7">
           {days.map((day, idx) => {
             const list = byDay.get(day) ?? [];
             const dayTotal = expectedTotal(list);

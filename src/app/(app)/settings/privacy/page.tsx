@@ -87,7 +87,7 @@ export default async function PrivacyPage() {
             description="Sign-ins, connections, exports and privacy changes on your account."
           />
           <div className="overflow-x-auto">
-            <table className="data-table">
+            <table className="data-table m-hide-c3">
               <thead>
                 <tr>
                   <th>When</th>

@@ -134,7 +134,7 @@ export default async function OverviewPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-[22px] font-semibold tracking-[-0.02em]">
+          <h1 className="text-[20px] font-semibold tracking-[-0.02em] sm:text-[22px]">
             {greeting(today)}
             {profile?.display_name ? `, ${profile.display_name}` : ""}
           </h1>
@@ -143,7 +143,7 @@ export default async function OverviewPage() {
             {expectedNext14 > 0 ? `, ${formatMoney(expectedNext14, currency)} in expected payments` : ""}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex w-full gap-2 sm:w-auto [&>*]:flex-1 sm:[&>*]:flex-none">
           <ButtonLink href="/insights/assistant" variant="secondary">
             <Lightbulb /> Ask a question
           </ButtonLink>
@@ -153,8 +153,9 @@ export default async function OverviewPage() {
         </div>
       </div>
 
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5" aria-label="Key figures">
+      <section className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-5" aria-label="Key figures">
         <StatTile
+          className="col-span-2 sm:col-span-1"
           label={`Spent in ${formatMonth(today, "short")}`}
           icon={TrendingDown}
           value={formatMoney(summary.spent, currency)}

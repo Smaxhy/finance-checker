@@ -93,6 +93,7 @@
   --animate-fade-in: fade-in 260ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
   --animate-slide-up: slide-up 320ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
   --animate-pop: pop 160ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-sheet: sheet-up 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 @keyframes fade-in {
@@ -106,6 +107,10 @@
 @keyframes pop {
   from { opacity: 0; transform: scale(0.97); }
   to { opacity: 1; transform: scale(1); }
+}
+@keyframes sheet-up {
+  from { transform: translateY(24px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 @keyframes shimmer {
   from { background-position: -200% 0; }
@@ -142,6 +147,15 @@
   textarea,
   button {
     font: inherit;
+  }
+  /* Touch: no grey tap flash, no double-tap zoom delay on controls */
+  a,
+  button,
+  [role="button"],
+  select,
+  label {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
   /* Thin, quiet scrollbars */
   * {
@@ -193,6 +207,93 @@
   }
   .data-table tbody tr:last-child td {
     border-bottom: 0;
+  }
+}
+
+/* Phones: tables marked .stack-sm turn each row into a small card with labelled
+   fields (labels come from data-label). .m-hide-cN hides column N on phones. */
+@media (max-width: 639px) {
+  .data-table.stack-sm thead {
+    display: none;
+  }
+  .data-table.stack-sm,
+  .data-table.stack-sm tbody,
+  .data-table.stack-sm tr {
+    display: block;
+    width: 100%;
+  }
+  .data-table.stack-sm tr {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .data-table.stack-sm tbody tr:last-child {
+    border-bottom: 0;
+  }
+  .data-table.stack-sm td {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    border: 0;
+    padding: 2px 0 !important;
+    max-width: none !important;
+    text-align: right !important;
+    white-space: normal !important;
+  }
+  .data-table.stack-sm td:first-child {
+    padding-bottom: 6px !important;
+    text-align: left !important;
+  }
+  .data-table.stack-sm td[data-label]::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    color: var(--text-muted);
+    font-size: 12px;
+    text-align: left;
+  }
+  .data-table.m-hide-c2 :is(th, td):nth-child(2),
+  .data-table.m-hide-c3 :is(th, td):nth-child(3),
+  .data-table.m-hide-c4 :is(th, td):nth-child(4),
+  .data-table.m-hide-c5 :is(th, td):nth-child(5),
+  .data-table.m-hide-c6 :is(th, td):nth-child(6) {
+    display: none;
+  }
+  .data-table:not(.stack-sm) th,
+  .data-table:not(.stack-sm) td {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+}
+
+/* Tablets / small laptops: .t-hide-cN hides column N below the xl breakpoint. */
+@media (max-width: 1279px) {
+  .data-table.t-hide-c3 :is(th, td):nth-child(3),
+  .data-table.t-hide-c4 :is(th, td):nth-child(4),
+  .data-table.t-hide-c5 :is(th, td):nth-child(5),
+  .data-table.t-hide-c6 :is(th, td):nth-child(6) {
+    display: none;
+  }
+}
+
+/* Phones: 16px form text so iOS Safari never zooms into a focused field. */
+@media (max-width: 639px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
   }
 }
 

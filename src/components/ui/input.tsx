@@ -6,7 +6,7 @@ const field =
   "w-full rounded-lg border border-border bg-surface-2 px-3 text-[13px] text-fg placeholder:text-muted transition-colors duration-150 hover:border-border-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:opacity-60";
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input({ className, ...props }, ref) {
-  return <input ref={ref} className={cn(field, "h-8", className)} {...props} />;
+  return <input ref={ref} className={cn(field, "h-10 sm:h-8", className)} {...props} />;
 });
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(function Textarea(
@@ -22,7 +22,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
 ) {
   return (
     <div className={cn("relative", className)}>
-      <select ref={ref} className={cn(field, "h-8 appearance-none pr-8")} {...props}>
+      <select ref={ref} className={cn(field, "h-10 appearance-none pr-8 sm:h-8")} {...props}>
         {children}
       </select>
       <ChevronDown className="pointer-events-none absolute top-1/2 right-2.5 size-3.5 -translate-y-1/2 text-muted" />

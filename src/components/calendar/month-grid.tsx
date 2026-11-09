@@ -141,7 +141,7 @@ export function MonthGrid({
             <div className="flex flex-col items-center py-10 text-center">
               <CalendarX2 className="size-5 text-muted" />
               <p className="mt-2 text-[13px] font-medium">Nothing planned</p>
-              <p className="mt-0.5 text-[12px] text-muted">Double-click a day or use + to add an event.</p>
+              <p className="mt-0.5 text-[12px] text-muted">Tap + to add an event, or double-click a day.</p>
             </div>
           )}
         </div>

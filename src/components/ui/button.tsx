@@ -16,12 +16,13 @@ const variants: Record<Variant, string> = {
   danger: "bg-danger-soft text-danger border border-danger/30 hover:bg-danger/20",
 };
 
+// Phones get ≥36px touch targets; from `sm` up the denser desktop sizes apply.
 const sizes: Record<Size, string> = {
-  sm: "h-7 px-2.5 text-[12.5px]",
-  md: "h-8 px-3 text-[13px]",
-  lg: "h-10 px-4 text-sm",
-  icon: "size-8",
-  "icon-sm": "size-7 [&_svg]:size-3.5",
+  sm: "h-9 px-3 text-[13px] sm:h-7 sm:px-2.5 sm:text-[12.5px]",
+  md: "h-10 px-3.5 text-[14px] sm:h-8 sm:px-3 sm:text-[13px]",
+  lg: "h-11 px-4 text-sm sm:h-10",
+  icon: "size-10 sm:size-8",
+  "icon-sm": "size-9 sm:size-7 [&_svg]:size-3.5",
 };
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {

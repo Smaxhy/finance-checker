@@ -156,7 +156,7 @@ export default async function PatternsPage() {
           <CardBody>
             <IncomeExpenseChart currency={currency} height={210} data={monthlyDense.map((m) => ({ label: formatMonth(m.period, "short"), income: m.income, spent: m.spent }))} />
             <div className="mt-4 overflow-x-auto">
-              <table className="data-table text-[12.5px]">
+              <table className="data-table m-hide-c2 text-[12.5px]">
                 <thead>
                   <tr>
                     <th>Month</th>
@@ -197,7 +197,7 @@ export default async function PatternsPage() {
       <Card>
         <CardHeader title="Category changes" description={`This month so far vs the same ${today.getDate()} days last month, with last month and your 3-month average for context`} />
         <div className="overflow-x-auto px-2 pb-3">
-          <table className="data-table text-[13px]">
+          <table className="data-table m-hide-c3 m-hide-c5 m-hide-c6 t-hide-c5 t-hide-c6 text-[13px]">
             <thead>
               <tr>
                 <th>Category</th>

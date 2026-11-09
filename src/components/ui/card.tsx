@@ -17,7 +17,7 @@ export function CardHeader({
   className?: string;
 }) {
   return (
-    <div className={cn("flex items-start justify-between gap-3 px-5 pt-4 pb-3", className)}>
+    <div className={cn("flex items-start justify-between gap-3 px-4 pt-4 pb-3 sm:px-5", className)}>
       <div className="min-w-0">
         <h3 className="text-[13px] font-medium text-fg">{title}</h3>
         {description ? <p className="mt-0.5 text-[12.5px] text-muted">{description}</p> : null}
@@ -28,7 +28,7 @@ export function CardHeader({
 }
 
 export function CardBody({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("px-5 pb-5", className)} {...props} />;
+  return <div className={cn("px-4 pb-4 sm:px-5 sm:pb-5", className)} {...props} />;
 }
 
 export function Divider({ className }: { className?: string }) {

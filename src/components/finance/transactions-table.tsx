@@ -91,14 +91,41 @@ export function TransactionsTable({
 
   return (
     <>
-      <div className="overflow-x-auto">
-        <table className="data-table min-w-[760px]">
+      {/* Phones: a compact tappable list; category is changed from the detail sheet. */}
+      <ul className="divide-y divide-border sm:hidden">
+        {rows.map((t) => {
+          const cat = byId.get(t.category_id ?? "other");
+          return (
+            <li key={t.id}>
+              <button onClick={() => setDetail(t)} className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-surface-2">
+                <CategoryIcon icon={cat?.icon} className="size-9" />
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1.5 text-[14px] font-medium">
+                    <span className="truncate">{t.merchant ?? t.counterparty_name ?? "Transaction"}</span>
+                    {t.is_demo && <DemoBadge />}
+                    {t.subscription_id && <Repeat className="size-3 shrink-0 text-muted" aria-label="Recurring" />}
+                  </span>
+                  <span className="block truncate text-[12.5px] text-muted">
+                    {formatDate(t.booked_at, "short")} · {t.kind === "transfer" ? "Own transfer" : (cat?.name ?? "Uncategorised")}
+                  </span>
+                </span>
+                <span className={cn("shrink-0 text-[14px] font-medium tabular", t.kind === "transfer" ? "text-muted" : t.amount > 0 && "text-positive")}>
+                  {formatMoney(t.amount, t.currency, { sign: true })}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className="hidden overflow-x-auto sm:block">
+        <table className="data-table">
           <thead>
             <tr>
-              <th className="w-24">Date</th>
+              <th className="w-20">Date</th>
               <th>Description</th>
-              <th className="w-48">Category</th>
-              <th className="w-40">Account</th>
+              <th className="w-44">Category</th>
+              <th className="hidden w-40 xl:table-cell">Account</th>
               <th className="w-32 text-right">Amount</th>
             </tr>
           </thead>
@@ -112,14 +139,14 @@ export function TransactionsTable({
                     <div className="flex items-center gap-2.5">
                       <CategoryIcon icon={cat?.icon} />
                       <div className="min-w-0">
-                        <p className="flex items-center gap-1.5 truncate text-[13px] font-medium">
+                        <p className="flex max-w-[24vw] items-center gap-1.5 truncate text-[13px] font-medium xl:max-w-none">
                           <span className="truncate">{t.merchant ?? t.counterparty_name ?? "Transaction"}</span>
                           {t.is_demo && <DemoBadge />}
                           {t.subscription_id && <Repeat className="size-3 shrink-0 text-muted" aria-label="Recurring" />}
                           {t.notes && <StickyNote className="size-3 shrink-0 text-muted" aria-label="Has notes" />}
                           {t.status === "pending" && <Badge tone="warning">Pending</Badge>}
                         </p>
-                        <p className="max-w-[420px] truncate text-[12px] text-muted">{t.description}</p>
+                        <p className="max-w-[24vw] truncate text-[12px] text-muted xl:max-w-[420px]">{t.description}</p>
                       </div>
                     </div>
                   </td>
@@ -132,7 +159,7 @@ export function TransactionsTable({
                       <CategorySelect tx={t} categories={categories} onPicked={(id) => id !== t.category_id && setPendingCategory({ tx: t, categoryId: id })} />
                     )}
                   </td>
-                  <td className="truncate text-[12.5px] text-muted">{t.account_id ? (accounts[t.account_id] ?? "—") : "—"}</td>
+                  <td className="hidden truncate text-[12.5px] text-muted xl:table-cell">{t.account_id ? (accounts[t.account_id] ?? "—") : "—"}</td>
                   <td className={cn("text-right text-[13px] font-medium whitespace-nowrap tabular", t.kind === "transfer" ? "text-muted" : t.amount > 0 && "text-positive")}>
                     {formatMoney(t.amount, t.currency, { sign: true })}
                   </td>
@@ -161,12 +188,33 @@ export function TransactionsTable({
         )}
       </Dialog>
 
-      <TransactionDetail tx={detail} onClose={() => setDetail(null)} categoryName={detail ? byId.get(detail.category_id ?? "other")?.name : undefined} accountName={detail?.account_id ? accounts[detail.account_id] : undefined} />
+      <TransactionDetail
+        tx={detail}
+        onClose={() => setDetail(null)}
+        categories={categories}
+        onCategory={(tx, id) => {
+          setDetail(null);
+          if (id !== tx.category_id) setPendingCategory({ tx, categoryId: id });
+        }}
+        accountName={detail?.account_id ? accounts[detail.account_id] : undefined}
+      />
     </>
   );
 }
 
-function TransactionDetail({ tx, onClose, categoryName, accountName }: { tx: Transaction | null; onClose: () => void; categoryName?: string; accountName?: string }) {
+function TransactionDetail({
+  tx,
+  onClose,
+  categories,
+  onCategory,
+  accountName,
+}: {
+  tx: Transaction | null;
+  onClose: () => void;
+  categories: Category[];
+  onCategory: (tx: Transaction, categoryId: string) => void;
+  accountName?: string;
+}) {
   const [notes, setNotes] = useState("");
   const [busy, start] = useTransition();
   const [openId, setOpenId] = useState<string | null>(null);
@@ -179,7 +227,16 @@ function TransactionDetail({ tx, onClose, categoryName, accountName }: { tx: Tra
     ["Date", formatDate(tx.booked_at, "long")],
     ["Amount", <span key="a" className="tabular">{formatMoney(tx.amount, tx.currency, { sign: true })}</span>],
     ["Type", KIND_LABEL[tx.kind]],
-    ["Category", tx.kind === "transfer" ? "Transfer between your own accounts (excluded from spending and income)" : (categoryName ?? "—")],
+    [
+      "Category",
+      tx.kind === "transfer" ? (
+        "Transfer between your own accounts (excluded from spending and income)"
+      ) : (
+        <div key="c" className="-ml-1.5 [&_select]:h-9 [&_select]:max-w-none [&_select]:border-border [&_select]:bg-surface-2">
+          <CategorySelect tx={tx} categories={categories} onPicked={(id) => onCategory(tx, id)} />
+        </div>
+      ),
+    ],
     ["Account", accountName ?? "—"],
     ["Counterparty", [tx.counterparty_name, tx.counterparty_iban_masked].filter(Boolean).join(" · ") || "—"],
     ["Description", tx.description ?? "—"],
@@ -188,7 +245,7 @@ function TransactionDetail({ tx, onClose, categoryName, accountName }: { tx: Tra
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent title={tx.merchant ?? "Transaction"} description={tx.is_demo ? "Sample data" : undefined} wide>
-        <dl className="grid grid-cols-[120px_1fr] gap-x-4 gap-y-2.5 text-[13px]">
+        <dl className="grid grid-cols-[96px_1fr] gap-x-3 gap-y-2.5 text-[13px] sm:grid-cols-[120px_1fr] sm:gap-x-4">
           {rows.map(([k, v]) => (
             <div key={k} className="contents">
               <dt className="text-muted">{k}</dt>
@@ -204,8 +261,8 @@ function TransactionDetail({ tx, onClose, categoryName, accountName }: { tx: Tra
         <Field label="Notes" className="mt-5">
           <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add a note…" maxLength={1000} />
         </Field>
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex gap-2">
+        <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="ghost"
               size="sm"

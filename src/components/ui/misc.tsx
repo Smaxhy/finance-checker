@@ -20,7 +20,7 @@ export function PageHeader({
     <div className="mb-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-[22px] font-semibold tracking-[-0.02em] text-fg">{title}</h1>
+          <h1 className="text-[20px] font-semibold tracking-[-0.02em] text-fg sm:text-[22px]">{title}</h1>
           {description ? <p className="mt-1 text-[13px] text-muted">{description}</p> : null}
         </div>
         {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
@@ -33,7 +33,7 @@ export function PageHeader({
 /** Link-based segmented navigation used for sub-sections (Active / Trials / ...). */
 export function Tabs({ items, active }: { items: { href: string; label: string; count?: number }[]; active: string }) {
   return (
-    <div className="flex w-full gap-1 overflow-x-auto border-b border-border">
+    <div className="scrollbar-none -mx-4 flex gap-1 overflow-x-auto border-b border-border px-4 sm:mx-0 sm:w-full sm:px-0">
       {items.map((item) => {
         const isActive = item.href === active;
         return (
@@ -82,14 +82,14 @@ export function StatTile({
   const hasDelta = delta !== undefined && delta !== null && Number.isFinite(delta);
   const good = hasDelta && (upIsGood ? delta! >= 0 : delta! <= 0);
   return (
-    <div className={cn("card flex flex-col p-4", className)}>
+    <div className={cn("card flex min-w-0 flex-col p-3.5 sm:p-4", className)}>
       <div className="flex items-center justify-between gap-2 text-[12.5px] text-muted">
-        <span className="flex items-center gap-1.5">
-          {Icon ? <Icon className="size-3.5" /> : null}
-          {label}
+        <span className="flex min-w-0 items-center gap-1.5">
+          {Icon ? <Icon className="size-3.5 shrink-0" /> : null}
+          <span className="truncate">{label}</span>
         </span>
       </div>
-      <div className="mt-2 text-[24px] leading-tight font-semibold tracking-[-0.02em] text-fg">{value}</div>
+      <div className="mt-2 truncate text-[19px] leading-tight font-semibold tracking-[-0.02em] text-fg sm:text-[24px]">{value}</div>
       <div className="mt-1.5 flex min-h-[18px] flex-wrap items-center gap-x-1.5 text-[12px]">
         {hasDelta ? (
           <span className={cn("inline-flex items-center gap-0.5 font-medium", good ? "text-positive" : "text-danger")}>
@@ -165,7 +165,7 @@ export function SetupRequired({
   className?: string;
 }) {
   return (
-    <div className={cn("rounded-xl border border-dashed border-border-strong bg-surface/60 p-5", className)}>
+    <div className={cn("rounded-xl border border-dashed border-border-strong bg-surface/60 p-4 sm:p-5", className)}>
       <div className="flex items-start gap-3">
         <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent-text">
           <Plug className="size-4" />
@@ -174,7 +174,7 @@ export function SetupRequired({
           <p className="text-[13.5px] font-medium">{title}</p>
           <div className="mt-1 text-[12.5px] text-muted">{description}</div>
           {missing && missing.length > 0 ? (
-            <div className="mt-2 flex flex-wrap gap-1.5">
+            <div className="mt-2 hidden flex-wrap gap-1.5 sm:flex">
               {missing.map((m) => (
                 <code key={m} className="rounded bg-surface-3 px-1.5 py-0.5 font-mono text-[11px] text-secondary">
                   {m}
