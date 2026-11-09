@@ -7,7 +7,8 @@ import { runPipeline } from "@/lib/engines/pipeline";
 import { purgeExpiredEmails } from "@/lib/email/retention";
 import type { Connection } from "@/lib/types";
 
-export const maxDuration = 800;
+// 300s is the maximum on Vercel's free (Hobby) plan; Pro allows up to 800.
+export const maxDuration = 300;
 
 function authorised(request: NextRequest) {
   const header = request.headers.get("authorization") ?? "";
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
   const users = new Set<string>();
   for (const c of (connections ?? []) as Connection[]) {
     users.add(c.user_id);
-    if (Date.now() - started > (maxDuration - 120) * 1000) break; // leave time for the rest
+    if (Date.now() - started > (maxDuration - 90) * 1000) break; // leave time for the rest
     summary.connections++;
     const res = await syncConnection(admin, c.user_id, c.id, { skipPipeline: true });
     if (!res.ok) summary.syncErrors++;
