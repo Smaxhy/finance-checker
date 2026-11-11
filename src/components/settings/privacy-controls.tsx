@@ -24,7 +24,7 @@ export function AiConsent({ assistant, extraction, configured }: { assistant: bo
         <span>
           <span className="block text-[13px] font-medium">AI assistant</span>
           <span className="mt-0.5 block text-[12.5px] text-muted">
-            When you ask a question, your question and the specific figures the assistant looks up (totals, matching transactions, subscriptions, extracted email fields - never email bodies) are sent to Anthropic&apos;s API to compose the answer. Under Anthropic&apos;s commercial terms API data isn&apos;t used for model training. Conversations are not stored by this app.
+            When you ask a question, your question and the specific figures the assistant looks up (totals, matching transactions, subscriptions, extracted email fields - never email bodies) are sent to Anthropic&apos;s API to compose the answer. Under Anthropic&apos;s commercial terms API data isn&apos;t used for model training. Conversations are not stored by this app. When off, the built-in assistant answers on this server and nothing is sent.
           </span>
         </span>
         <Switch
@@ -54,7 +54,7 @@ export function AiConsent({ assistant, extraction, configured }: { assistant: bo
           }}
         />
       </label>
-      {!configured && <p className="pt-3 text-[12px] text-muted">No AI provider is configured on this server, so nothing can be sent.</p>}
+      {!configured && <p className="pt-3 text-[12px] text-muted">No AI provider is configured on this server, so nothing can be sent. The built-in assistant still answers questions and runs check-ups.</p>}
     </div>
   );
 }
@@ -114,7 +114,7 @@ export function DataControls({ email }: { email: string }) {
           <Button variant="danger" size="sm" onClick={() => setWipeOpen(true)}>
             <Trash2 /> Delete all data
           </Button>
-          <DialogContent title="Delete all of your data?" description="This cannot be undone. Connections are revoked at Google and your bank first.">
+          <DialogContent title="Delete all of your data?" description={IS_LOCAL ? "This cannot be undone. It also removes any saved AI key and signs this browser out of your Google accounts." : "This cannot be undone. Connections are revoked at Google and your bank first."}>
             <p className="mb-2 text-[12.5px] text-muted">
               Type <span className="font-mono text-fg">DELETE</span> to confirm.
             </p>

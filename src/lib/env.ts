@@ -32,6 +32,8 @@ export const env = {
     apiKey: read("ANTHROPIC_API_KEY"),
     model: read("AI_MODEL") ?? "claude-opus-5-5",
     extractionModel: read("AI_EXTRACTION_MODEL") ?? read("AI_MODEL") ?? "claude-opus-5-5",
+    // low | medium | high - how much reasoning the assistant spends per answer.
+    effort: read("AI_EFFORT"),
   },
 };
 

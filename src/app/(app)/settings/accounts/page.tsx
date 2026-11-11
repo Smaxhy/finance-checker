@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { AlertTriangle, Bot, CalendarDays, CheckCircle2, FileUp, Landmark, Mail, ShieldCheck, Wallet } from "lucide-react";
+import { AlertTriangle, Bot, CalendarDays, CheckCircle2, FileUp, Landmark, Mail, Plus, ShieldCheck, Wallet } from "lucide-react";
 import { requireUser } from "@/lib/supabase/server";
-import { must } from "@/lib/data/core";
+import { getProfile, must } from "@/lib/data/core";
 import { listAccounts } from "@/lib/data/finance";
 import { env, integrationStatus } from "@/lib/env";
 import { GOOGLE_SCOPES } from "@/lib/integrations/google/scopes";
@@ -14,6 +14,8 @@ import { ButtonLink } from "@/components/ui/button";
 import { PageHeader, SetupRequired } from "@/components/ui/misc";
 import { AutoSync, ConnectBankButton, DisconnectButton, SyncButton } from "@/components/settings/connection-controls";
 import { DeleteAccountButton } from "@/components/settings/delete-account-button";
+import { AiLocalCard, GoogleLocalOptions, GoogleLocalSetup, LocalSignInState } from "@/components/local/settings";
+import { IS_LOCAL } from "@/lib/local/mode";
 import { str } from "@/lib/finance/periods";
 import { SettingsTabs } from "../settings-tabs";
 
@@ -43,10 +45,11 @@ export default async function ConnectedAccountsPage({ searchParams }: PageProps<
   const sp = await searchParams;
   const { supabase } = await requireUser();
   const status = integrationStatus();
-  const [connRes, accounts, runsRes] = await Promise.all([
+  const [connRes, accounts, runsRes, profile] = await Promise.all([
     supabase.from("connections").select("*").order("created_at"),
     listAccounts(supabase),
     supabase.from("sync_runs").select("*").order("started_at", { ascending: false }).limit(10),
+    getProfile(),
   ]);
   const connections = must(connRes, "connections") as Connection[];
   const runs = must(runsRes, "sync runs") as SyncRun[];
@@ -55,12 +58,14 @@ export default async function ConnectedAccountsPage({ searchParams }: PageProps<
   const otherAccounts = accounts.filter((a) => a.source !== "bank");
   const error = str(sp.error);
   const connected = str(sp.connected);
-  const hasGmail = google.some((c) => c.scopes.includes(GOOGLE_SCOPES.gmail));
-  const hasCalendar = google.some((c) => c.scopes.includes(GOOGLE_SCOPES.calendar));
+  const start = (services: string, hint?: string) => `/api/integrations/google/start?services=${services}${hint ? `&hint=${encodeURIComponent(hint)}` : ""}`;
 
   return (
     <div>
-      <PageHeader title="Settings" description="Connections are read-only. Credentials are encrypted (AES-256-GCM) and never shown to the browser." />
+      <PageHeader
+        title="Settings"
+        description={IS_LOCAL ? "Connections are read-only. Nothing is stored on a server: your data, and any keys you add, stay in this browser." : "Connections are read-only. Credentials are encrypted (AES-256-GCM) and never shown to the browser."}
+      />
       <SettingsTabs active="/settings/accounts" />
       <AutoSync />
 
@@ -76,10 +81,12 @@ export default async function ConnectedAccountsPage({ searchParams }: PageProps<
                 <Mail className="size-4 text-muted" /> Gmail & Google Calendar
               </span>
             }
-            description="Read-only access: gmail.readonly and calendar.readonly. Nothing can be sent, deleted, modified or created."
+            description="Connect as many Google accounts as you have. Read-only access: gmail.readonly and calendar.readonly. Nothing can be sent, deleted, modified or created."
           />
           <CardBody className="space-y-3">
-            {!status.google.configured ? (
+            {!status.google.configured && IS_LOCAL ? (
+              <GoogleLocalSetup />
+            ) : !status.google.configured ? (
               <SetupRequired
                 title="Google OAuth isn't configured"
                 missing={status.google.missing}
@@ -96,14 +103,14 @@ export default async function ConnectedAccountsPage({ searchParams }: PageProps<
               />
             ) : google.length === 0 ? (
               <div className="flex flex-wrap gap-2">
-                <ButtonLink href="/api/integrations/google/start?services=gmail" variant="primary" size="sm" prefetch={false}>
-                  <Mail /> Connect Gmail
+                <ButtonLink href={start("gmail,calendar")} variant="primary" size="sm" prefetch={false}>
+                  <Mail /> Connect Gmail and Calendar
                 </ButtonLink>
-                <ButtonLink href="/api/integrations/google/start?services=calendar" variant="secondary" size="sm" prefetch={false}>
-                  <CalendarDays /> Connect Google Calendar
+                <ButtonLink href={start("gmail")} variant="secondary" size="sm" prefetch={false}>
+                  Gmail only
                 </ButtonLink>
-                <ButtonLink href="/api/integrations/google/start?services=gmail,calendar" variant="ghost" size="sm" prefetch={false}>
-                  Both
+                <ButtonLink href={start("calendar")} variant="ghost" size="sm" prefetch={false}>
+                  <CalendarDays /> Calendar only
                 </ButtonLink>
               </div>
             ) : null}
@@ -115,25 +122,31 @@ export default async function ConnectedAccountsPage({ searchParams }: PageProps<
                       {c.label} <StatusBadge c={c} />
                     </p>
                     <p className="mt-1 text-[12.5px] text-muted">
-                      {[c.scopes.includes(GOOGLE_SCOPES.gmail) && "Gmail (read-only)", c.scopes.includes(GOOGLE_SCOPES.calendar) && "Calendar (read-only)"].filter(Boolean).join(" · ")} · last synced {relativeTime(c.last_synced_at)}
+                      {[c.scopes.includes(GOOGLE_SCOPES.gmail) && "Gmail (read-only)", c.scopes.includes(GOOGLE_SCOPES.calendar) && "Calendar (read-only)"].filter(Boolean).join(" · ")} · last checked {relativeTime(c.last_synced_at)}
+                      {IS_LOCAL && <LocalSignInState id={c.id} />}
                     </p>
                     {c.last_error && <p className="mt-1 text-[12.5px] text-danger">{c.last_error}</p>}
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {c.status === "expired" ? (
-                      <ButtonLink href="/api/integrations/google/start?services=gmail,calendar" variant="primary" size="sm" prefetch={false}>
+                      <ButtonLink
+                        href={start([c.scopes.includes(GOOGLE_SCOPES.gmail) && "gmail", c.scopes.includes(GOOGLE_SCOPES.calendar) && "calendar"].filter(Boolean).join(",") || "gmail,calendar", c.label)}
+                        variant="primary"
+                        size="sm"
+                        prefetch={false}
+                      >
                         Reconnect
                       </ButtonLink>
                     ) : (
-                      <SyncButton connectionId={c.id} />
+                      <SyncButton connectionId={c.id} label="Check now" />
                     )}
-                    {!hasGmail && status.google.configured && (
-                      <ButtonLink href="/api/integrations/google/start?services=gmail" variant="ghost" size="sm" prefetch={false}>
+                    {!c.scopes.includes(GOOGLE_SCOPES.gmail) && status.google.configured && (
+                      <ButtonLink href={start("gmail", c.label)} variant="ghost" size="sm" prefetch={false}>
                         Add Gmail
                       </ButtonLink>
                     )}
-                    {!hasCalendar && status.google.configured && (
-                      <ButtonLink href="/api/integrations/google/start?services=calendar" variant="ghost" size="sm" prefetch={false}>
+                    {!c.scopes.includes(GOOGLE_SCOPES.calendar) && status.google.configured && (
+                      <ButtonLink href={start("calendar", c.label)} variant="ghost" size="sm" prefetch={false}>
                         Add Calendar
                       </ButtonLink>
                     )}
@@ -142,6 +155,15 @@ export default async function ConnectedAccountsPage({ searchParams }: PageProps<
                 </div>
               </div>
             ))}
+            {status.google.configured && google.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                <ButtonLink href={start("gmail,calendar")} variant="secondary" size="sm" prefetch={false}>
+                  <Plus /> Add another Google account
+                </ButtonLink>
+                <span className="text-[12px] text-muted">Google lets you pick which account to add. Each one is checked separately and shown together.</span>
+              </div>
+            )}
+            {IS_LOCAL && status.google.configured && <GoogleLocalOptions connectionIds={google.map((c) => c.id)} />}
           </CardBody>
         </Card>
 
@@ -251,17 +273,19 @@ export default async function ConnectedAccountsPage({ searchParams }: PageProps<
         )}
 
         {/* AI */}
-        <Card>
+        <Card id="ai" className="scroll-mt-20">
           <CardHeader
             title={
               <span className="flex items-center gap-2">
                 <Bot className="size-4 text-muted" /> AI provider
               </span>
             }
-            description="Anthropic Claude powers the assistant and (optionally) richer email extraction."
+            description={IS_LOCAL ? "Optional: add Claude for free-form questions and deeper analysis. The built-in assistant works without it." : "Anthropic Claude powers free-form questions and (optionally) richer email extraction. Without it, the built-in assistant answers."}
           />
           <CardBody>
-            {status.anthropic.configured ? (
+            {IS_LOCAL ? (
+              <AiLocalCard assistant={Boolean(profile?.ai_assistant_enabled)} extraction={Boolean(profile?.ai_email_extraction_enabled)} />
+            ) : status.anthropic.configured ? (
               <p className="flex items-center gap-2 text-[13px]">
                 <Badge tone="positive">
                   <CheckCircle2 /> Configured
@@ -273,7 +297,11 @@ export default async function ConnectedAccountsPage({ searchParams }: PageProps<
                 .
               </p>
             ) : (
-              <SetupRequired title="No AI provider configured" missing={status.anthropic.missing} description="Add an Anthropic API key to enable the assistant. Everything else works without it - insights are computed locally from your data." />
+              <SetupRequired
+                title="Claude isn't configured (optional)"
+                missing={status.anthropic.missing}
+                description="The built-in assistant already answers common questions and runs check-ups without any AI provider. Add an Anthropic API key to the server for free-form questions and deeper analysis."
+              />
             )}
           </CardBody>
         </Card>
@@ -286,7 +314,13 @@ export default async function ConnectedAccountsPage({ searchParams }: PageProps<
                 <ShieldCheck className="size-4 text-muted" /> Recent sync activity
               </span>
             }
-            description={status.cron.configured ? "Connections also sync automatically once a day." : "Set CRON_SECRET and schedule /api/cron/daily to sync automatically every day."}
+            description={
+              IS_LOCAL
+                ? "Accounts are checked while the app is open. This edition has no server, so nothing runs while it is closed."
+                : status.cron.configured
+                  ? "Connections also sync automatically once a day."
+                  : "Set CRON_SECRET and schedule /api/cron/daily to sync automatically every day."
+            }
           />
           <CardBody>
             {runs.length === 0 ? (

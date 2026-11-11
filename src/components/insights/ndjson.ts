@@ -1,9 +1,22 @@
+import type { DataCard } from "@/lib/ai/cards";
+
 export interface StreamEvent {
   type: string;
   text?: string;
   label?: string;
   name?: string;
   message?: string;
+  /** "engine" events: which assistant is answering. */
+  engine?: "builtin" | "claude";
+  model?: string;
+  /** "card" events: a chart or table drawn from the data. */
+  card?: DataCard;
+  /** "suggestions" events: follow-up questions. */
+  items?: string[];
+  /** "usage" events (Claude only). */
+  input_tokens?: number;
+  output_tokens?: number;
+  cost_usd?: number | null;
 }
 
 /**

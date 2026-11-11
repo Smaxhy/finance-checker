@@ -39,6 +39,10 @@ jobs:
         env:
           # "/finance-checker" for a project site, "" for a user/org site or custom domain.
           NEXT_PUBLIC_BASE_PATH: ${{ steps.pages.outputs.base_path }}
+          # Optional: a Google OAuth client ID (a public identifier, not a secret) so it doesn't have
+          # to be pasted into the app on each device. Set it under Settings -> Secrets and variables
+          # -> Actions -> Variables as GOOGLE_CLIENT_ID.
+          NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
           NEXT_TELEMETRY_DISABLED: "1"
 
       - uses: actions/upload-pages-artifact@v4

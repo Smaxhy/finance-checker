@@ -1,6 +1,11 @@
 // Settings actions for the GitHub Pages edition (data lives in this browser only).
 import { z } from "zod";
 import { LOCAL_CHANGE_EVENT, LOCAL_USER_ID, localDb, wipeAll } from "../db";
+import { clearLocalSecrets } from "../prefs";
+import { clearAllTokens, clearToken, getToken, revokeToken } from "../google";
+import { GOOGLE_SCOPES } from "@/lib/integrations/google/scopes";
+import { calendarIdOf } from "@/lib/calendar/google-sync";
+import type { Connection } from "@/lib/types";
 
 type Result = { ok: true; message?: string } | { ok: false; message: string };
 
@@ -63,13 +68,46 @@ export async function updatePrivacy(input: z.input<typeof privacyInput>): Promis
   return updateOwnProfile(parsed.data);
 }
 
-export async function disconnectConnection(): Promise<Result> {
-  return { ok: false, message: "Connections aren't available in the GitHub Pages edition." };
+const disconnectInput = z.object({ id: z.string().min(1), deleteData: z.boolean() });
+
+/** Removes a Google account: revokes the token at Google (best effort), forgets it, and optionally deletes what it imported. */
+export async function disconnectConnection(input: z.input<typeof disconnectInput>): Promise<Result> {
+  const parsed = disconnectInput.safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Invalid input" };
+  const { data } = await localDb.from("connections").select("*").eq("id", parsed.data.id).maybeSingle();
+  const connection = data as Connection | null;
+  if (!connection) return { ok: false, message: "Connection not found" };
+
+  const token = getToken(connection.id);
+  if (token) await revokeToken(token);
+  clearToken(connection.id);
+
+  if (parsed.data.deleteData && connection.provider === "google") {
+    const { data: emails } = await localDb.from("emails").select("id").eq("connection_id", connection.id);
+    const ids = ((emails ?? []) as { id: string }[]).map((e) => e.id);
+    for (let i = 0; i < ids.length; i += 500) await localDb.from("events").delete().eq("source", "email").in("email_id", ids.slice(i, i + 500));
+    await localDb.from("emails").delete().eq("connection_id", connection.id);
+    if (connection.scopes.includes(GOOGLE_SCOPES.calendar)) {
+      // Only this account's calendars: other connected Google accounts keep their events.
+      const own = new Set(((connection.sync_state?.calendar as { calendarIds?: string[] } | undefined)?.calendarIds ?? []) as string[]);
+      const { data: others } = await localDb.from("connections").select("id, scopes").eq("provider", "google").neq("id", connection.id);
+      const otherCalendars = ((others ?? []) as { scopes: string[] }[]).some((c) => c.scopes.includes(GOOGLE_SCOPES.calendar));
+      const { data: events } = await localDb.from("events").select("id, external_id").eq("source", "google");
+      const doomed = ((events ?? []) as { id: string; external_id: string }[]).filter((e) => !otherCalendars || own.has(calendarIdOf(e.external_id))).map((e) => e.id);
+      for (let i = 0; i < doomed.length; i += 500) await localDb.from("events").delete().in("id", doomed.slice(i, i + 500));
+    }
+  }
+  await localDb.from("connections").delete().eq("id", connection.id);
+  changed();
+  const revoked = token ? "" : " To also remove this app from your Google account, open myaccount.google.com/permissions.";
+  return { ok: true, message: `${parsed.data.deleteData ? "Disconnected and imported data deleted." : "Disconnected - previously imported data was kept."}${revoked}` };
 }
 
 export async function deleteAllData(confirmation: string): Promise<Result> {
   if (confirmation !== "DELETE") return { ok: false, message: "Type DELETE to confirm" };
   await wipeAll();
+  clearLocalSecrets();
+  clearAllTokens();
   changed();
   return { ok: true, message: "All data stored in this browser has been deleted." };
 }
@@ -77,6 +115,8 @@ export async function deleteAllData(confirmation: string): Promise<Result> {
 // There is no account in this edition; deleting "the account" means deleting all local data.
 export async function deleteAccount(): Promise<Result> {
   await wipeAll();
+  clearLocalSecrets();
+  clearAllTokens();
   changed();
   return { ok: true, message: "All data stored in this browser has been deleted." };
 }

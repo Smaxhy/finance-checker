@@ -28,8 +28,9 @@ const MESSAGES: Record<string, { labelIds: string[]; snippet: string; from: stri
 };
 
 const requested: string[] = [];
-vi.mock("@/lib/integrations/google/oauth", () => ({
-  getGoogleAccessToken: vi.fn(async () => "access-token"),
+vi.mock("@/lib/integrations/google/oauth", () => ({ getGoogleAccessToken: vi.fn(async () => "access-token") }));
+vi.mock("@/lib/integrations/google/http", () => ({
+  GoogleAuthError: class GoogleAuthError extends Error {},
   googleFetch: vi.fn(async (_token: string, url: string) => {
     requested.push(url);
     const u = new URL(url);
@@ -139,7 +140,9 @@ describe("syncGmail", () => {
       amount: 129.98,
       order_number: "FR8KQ2",
       snippet: "Charleroi (CRL) → Lisbon (LIS) · 2 passengers",
-      web_link: "https://mail.google.com/mail/u/0/#all/m1",
+      connection_id: "conn-1",
+      // Opens in the right Google account when several are signed in.
+      web_link: "https://mail.google.com/mail/?authuser=alex%40example.com#all/m1",
       extraction_method: "rules",
     });
     for (const r of rows) {

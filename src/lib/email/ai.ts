@@ -1,9 +1,10 @@
-import "server-only";
+// Holds no secrets: the Anthropic client is passed in, so this also runs in the browser
+// in the GitHub Pages edition (with the user's own API key).
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
 import type { EmailCategory, EventKind } from "@/lib/types";
-import { AI_EXTRACTION_MODEL, FALLBACK_BETA } from "@/lib/ai/client";
+import { FALLBACK_BETA, supportsServerFallback } from "@/lib/ai/models";
 import { matchMerchant, slugify } from "@/lib/finance/merchants";
 import type { EmailExtraction, EmailInput } from "./classify";
 import { zonedIso } from "./extract";
@@ -59,14 +60,13 @@ other = anything else (newsletters, marketing, personal chat).`;
 
 const isDate = (v: string | null) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
 
-export async function extractWithAi(client: Anthropic, input: EmailInput, base: EmailExtraction): Promise<EmailExtraction | null> {
+export async function extractWithAi(client: Anthropic, model: string, input: EmailInput, base: EmailExtraction): Promise<EmailExtraction | null> {
   const body = (input.body ?? "").slice(0, AI_BODY_CHAR_CAP);
   try {
     const res = await client.beta.messages.parse({
-      model: AI_EXTRACTION_MODEL,
+      model,
       max_tokens: 4000,
-      betas: [FALLBACK_BETA],
-      fallbacks: "default",
+      ...(supportsServerFallback(model) ? { betas: [FALLBACK_BETA], fallbacks: "default" as const } : {}),
       output_config: { effort: "low", format: betaZodOutputFormat(ExtractionSchema) },
       system: SYSTEM,
       messages: [

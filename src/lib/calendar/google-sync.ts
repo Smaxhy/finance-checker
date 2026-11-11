@@ -92,6 +92,12 @@ export function mapGoogleEvent(ev: GCalEvent, calendar: Pick<GCalCalendar, "id" 
   };
 }
 
+/** Calendar id part of an event's external id ("<calendar id>:<event id>"). */
+export function calendarIdOf(externalId: string): string {
+  const cut = externalId.lastIndexOf(":");
+  return cut > 0 ? externalId.slice(0, cut) : externalId;
+}
+
 export async function runCalendarSync(opts: {
   fetchJson: FetchJson;
   store: CalendarStore;
@@ -100,12 +106,22 @@ export async function runCalendarSync(opts: {
   now?: Date;
   pastDays?: number;
   futureDays?: number;
+  /**
+   * With several Google accounts connected, pass the calendar ids this account
+   * showed last time (empty on its first sync). Clean-up of deleted events is
+   * then limited to this account's own calendars, so syncing one account never
+   * removes another account's events. Leave undefined for a single account.
+   */
+  ownCalendarIds?: string[];
+  /** Receives the ids of the calendars this account shows now, to remember for next time. */
+  onCalendars?: (ids: string[]) => void;
 }): Promise<CalendarSyncStats> {
   const now = opts.now ?? new Date();
   const timeMin = new Date(now.getTime() - (opts.pastDays ?? 30) * 86_400_000).toISOString();
   const timeMax = new Date(now.getTime() + (opts.futureDays ?? 180) * 86_400_000).toISOString();
 
   const calendars = await listVisibleCalendars(opts.fetchJson);
+  opts.onCalendars?.(calendars.map((c) => c.id));
   const rows = new Map<string, GoogleEventRow>();
   let fetched = 0;
   let skipped = 0;
@@ -125,7 +141,8 @@ export async function runCalendarSync(opts: {
   // Anything we stored earlier inside this window that Google no longer returns was deleted
   // (or its calendar was hidden) upstream.
   const existing = await opts.store.listExisting(timeMin, timeMax);
-  const stale = existing.filter((e) => !rows.has(e.external_id)).map((e) => e.id);
+  const own = opts.ownCalendarIds ? new Set([...opts.ownCalendarIds, ...calendars.map((c) => c.id)]) : null;
+  const stale = existing.filter((e) => !rows.has(e.external_id) && (!own || own.has(calendarIdOf(e.external_id)))).map((e) => e.id);
   for (let i = 0; i < stale.length; i += 100) await opts.store.deleteIds(stale.slice(i, i + 100));
 
   return { calendars: calendars.length, fetched, upserted: upserts.length, removed: stale.length, skipped };

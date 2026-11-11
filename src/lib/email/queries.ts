@@ -50,6 +50,8 @@ export interface EmailFilters {
   q?: string;
   category?: EmailCategory;
   merchantKey?: string;
+  /** Only emails from this mailbox (connection id). */
+  connectionId?: string;
   from?: string;
   to?: string;
   page?: number;
@@ -63,6 +65,7 @@ export async function listEmails(supabase: AppSupabaseClient, f: EmailFilters) {
   q = applyTab(q, f.tab);
   if (f.category) q = q.eq("category", f.category);
   if (f.merchantKey) q = q.eq("merchant_key", f.merchantKey);
+  if (f.connectionId) q = q.eq("connection_id", f.connectionId);
   if (f.from) q = q.gte("received_at", `${f.from}T00:00:00`);
   if (f.to) q = q.lte("received_at", `${f.to}T23:59:59`);
   const term = cleanTerm(f.q);
@@ -95,10 +98,25 @@ export async function tabCounts(supabase: AppSupabaseClient): Promise<Record<Ema
   return Object.fromEntries(entries) as Record<EmailTab, number>;
 }
 
-export async function gmailConnected(supabase: AppSupabaseClient): Promise<{ id: string; label: string; last_synced_at: string | null; status: string; last_error: string | null } | null> {
-  const { data } = await supabase.from("connections").select("id, label, scopes, last_synced_at, status, last_error").eq("provider", "google");
-  const c = (data ?? []).find((x) => (x.scopes as string[]).includes(GOOGLE_SCOPES.gmail) && x.status !== "revoked");
-  return c ? { id: c.id, label: c.label, last_synced_at: c.last_synced_at, status: c.status, last_error: c.last_error } : null;
+export interface Mailbox {
+  id: string;
+  /** The account's email address. */
+  label: string;
+  last_synced_at: string | null;
+  status: string;
+  last_error: string | null;
+}
+
+/** Every connected mailbox (one per Google account with Gmail access), oldest connection first. */
+export async function gmailConnections(supabase: AppSupabaseClient): Promise<Mailbox[]> {
+  const { data } = await supabase.from("connections").select("id, label, scopes, last_synced_at, status, last_error, created_at").eq("provider", "google").order("created_at");
+  return (data ?? [])
+    .filter((x) => (x.scopes as string[]).includes(GOOGLE_SCOPES.gmail) && x.status !== "revoked")
+    .map((c) => ({ id: c.id, label: c.label, last_synced_at: c.last_synced_at, status: c.status, last_error: c.last_error }));
+}
+
+export async function gmailConnected(supabase: AppSupabaseClient): Promise<Mailbox | null> {
+  return (await gmailConnections(supabase))[0] ?? null;
 }
 
 export interface EmailDetail {

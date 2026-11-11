@@ -1,4 +1,5 @@
 "use server";
+import { calendarIdOf } from "@/lib/calendar/google-sync";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -92,7 +93,19 @@ async function deleteConnectionData(admin: AdminClient, userId: string, connecti
     const ids = ((emails ?? []) as { id: string }[]).map((e) => e.id);
     for (let i = 0; i < ids.length; i += 500) await admin.from("events").delete().eq("user_id", userId).eq("source", "email").in("email_id", ids.slice(i, i + 500));
     await admin.from("emails").delete().eq("user_id", userId).eq("connection_id", connection.id);
-    if (connection.scopes.some((s) => s.includes("calendar"))) await admin.from("events").delete().eq("user_id", userId).eq("source", "google");
+    if (connection.scopes.some((s) => s.includes("calendar"))) {
+      // Only this account's calendars when other Google calendar accounts are connected.
+      const own = new Set((connection.sync_state?.calendar as { calendarIds?: string[] } | undefined)?.calendarIds ?? []);
+      const { data: others } = await admin.from("connections").select("scopes").eq("user_id", userId).eq("provider", "google").neq("id", connection.id);
+      const otherCalendars = ((others ?? []) as { scopes: string[] }[]).some((c) => c.scopes.some((s) => s.includes("calendar")));
+      if (!otherCalendars) {
+        await admin.from("events").delete().eq("user_id", userId).eq("source", "google");
+      } else {
+        const { data: events } = await admin.from("events").select("id, external_id").eq("user_id", userId).eq("source", "google");
+        const doomed = ((events ?? []) as { id: string; external_id: string }[]).filter((e) => own.has(calendarIdOf(e.external_id))).map((e) => e.id);
+        for (let i = 0; i < doomed.length; i += 200) await admin.from("events").delete().eq("user_id", userId).in("id", doomed.slice(i, i + 200));
+      }
+    }
   }
   if (connection.provider === "enable_banking") {
     // Deleting the accounts cascades to their transactions.

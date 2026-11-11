@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Inbox, Lock, Mail, Settings } from "lucide-react";
+import { ArrowLeft, ArrowRight, Inbox, Lock, Mail, Plus, Settings } from "lucide-react";
 import { requireUser } from "@/lib/supabase/server";
 import { getProfile } from "@/lib/data/core";
 import { integrationStatus } from "@/lib/env";
-import { EMAIL_TABS, getEmailDetail, gmailConnected, inboxAnswers, listEmails, merchantAnswer, tabCounts, type EmailTab } from "@/lib/email/queries";
+import { EMAIL_TABS, getEmailDetail, gmailConnections, inboxAnswers, listEmails, merchantAnswer, tabCounts, type EmailTab } from "@/lib/email/queries";
 import type { EmailCategory, EmailRecord } from "@/lib/types";
 import { formatDate, formatMoney, formatTime, relativeDay, relativeTime } from "@/lib/format";
 import { Card } from "@/components/ui/card";
@@ -15,6 +15,7 @@ import { EmailFilters } from "@/components/emails/email-filters";
 import { EmailDrawer } from "@/components/emails/email-drawer";
 import { GmailSyncButton } from "@/components/emails/sync-button";
 import { InboxAnswerGrid, MerchantAnswerCard } from "@/components/emails/answers";
+import { IS_LOCAL } from "@/lib/local/mode";
 import { cn } from "@/lib/utils";
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -51,19 +52,21 @@ export async function EmailsView({ tab, searchParams }: { tab: EmailTab; searchP
   const category = one(sp.category) as EmailCategory | undefined;
   const page = Math.max(1, Number(one(sp.page)) || 1);
   const id = one(sp.id);
+  const account = one(sp.account);
   const filters = {
     tab,
     q,
+    connectionId: account && /^[0-9a-f-]{36}$/i.test(account) ? account : undefined,
     category: category && category in EMAIL_CATEGORY_LABEL ? category : undefined,
     from: isDate(one(sp.from)),
     to: isDate(one(sp.to)),
     page,
   };
 
-  const [list, counts, connection, answers, merchant, detail] = await Promise.all([
+  const [list, counts, mailboxes, answers, merchant, detail] = await Promise.all([
     listEmails(supabase, filters),
     tabCounts(supabase),
-    gmailConnected(supabase),
+    gmailConnections(supabase),
     inboxAnswers(supabase),
     q ? merchantAnswer(supabase, q) : Promise.resolve(null),
     id ? getEmailDetail(supabase, id) : Promise.resolve(null),
@@ -84,7 +87,19 @@ export async function EmailsView({ tab, searchParams }: { tab: EmailTab; searchP
     return `${base}?${next}`;
   };
   const suggestions = [...new Set(answers.topMerchants.map((m) => m.merchant))].slice(0, 4);
-  const autoSync = Boolean(connection && !connection.last_synced_at);
+  const connection = mailboxes[0] ?? null;
+  const multi = mailboxes.length > 1;
+  const mailboxLabel = new Map(mailboxes.map((m) => [m.id, m.label]));
+  const troubled = mailboxes.filter((m) => m.status === "expired" || m.status === "error");
+  const lastChecked = mailboxes.map((m) => m.last_synced_at).filter(Boolean).sort().pop() ?? null;
+  // The server edition runs the first sync right after connecting; the Pages edition does it from the settings page.
+  const autoSync = !IS_LOCAL && Boolean(connection && mailboxes.some((m) => !m.last_synced_at));
+  const accountHref = (connectionId?: string) => {
+    const next = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) if (typeof v === "string" && !["page", "id", "account"].includes(k)) next.set(k, v);
+    if (connectionId) next.set("account", connectionId);
+    return `${base}${next.size ? `?${next}` : ""}`;
+  };
 
   return (
     <div className="space-y-5">
@@ -95,9 +110,9 @@ export async function EmailsView({ tab, searchParams }: { tab: EmailTab; searchP
           connection ? (
             <>
               <span className="hidden text-[12px] text-muted md:inline">
-                {connection.label} · synced {relativeTime(connection.last_synced_at)}
+                {multi ? `${mailboxes.length} mailboxes` : connection.label} · checked {relativeTime(lastChecked)}
               </span>
-              <GmailSyncButton connectionId={connection.id} autoStart={autoSync} />
+              <GmailSyncButton connectionId={multi ? undefined : connection.id} mailboxes={mailboxes.length} autoStart={autoSync} />
               <ButtonLink href="/settings/accounts" variant="ghost" size="icon" aria-label="Email connection settings">
                 <Settings />
               </ButtonLink>
@@ -110,27 +125,42 @@ export async function EmailsView({ tab, searchParams }: { tab: EmailTab; searchP
         <Lock className="size-3.5 shrink-0" /> Read-only Gmail access · nothing is ever sent, deleted or modified · only extracted details and Gmail&apos;s short preview are stored, never full emails
       </p>
 
-      {connection?.status === "expired" || connection?.status === "error" ? (
-        <SetupRequired
-          title={connection.status === "expired" ? "Gmail access expired" : "The last Gmail sync failed"}
-          description={connection.last_error ?? "Reconnect Gmail to resume syncing."}
-          action={
-            <ButtonLink href="/api/integrations/google/start?services=gmail" variant="primary" prefetch={false}>
-              Reconnect Gmail
-            </ButtonLink>
-          }
-        />
-      ) : null}
+      {troubled.map((m) => (
+        <div key={m.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-[12.5px]" data-testid="mailbox-problem">
+          <span className="min-w-0">
+            <span className="font-medium text-fg">{m.label}</span>{" "}
+            <span className="text-secondary">{m.status === "expired" ? "needs reconnecting." : "couldn't be checked."}</span>{" "}
+            <span className="text-muted">{m.last_error ?? "Reconnect to resume checking this mailbox."}</span>
+          </span>
+          <ButtonLink href={`/api/integrations/google/start?services=gmail&hint=${encodeURIComponent(m.label)}`} variant="primary" size="sm" prefetch={false}>
+            Reconnect
+          </ButtonLink>
+        </div>
+      ))}
 
       {!connection && (
         <SetupRequired
           title="Connect Gmail to analyse your inbox"
           description={
             google.configured
-              ? "Command Centre asks Google for read-only access (gmail.readonly). It finds receipts, subscriptions, trials, bills, bookings and appointments, and stores only the extracted details."
+              ? "Command Centre asks Google for read-only access (gmail.readonly). It finds receipts, subscriptions, trials, bills, bookings and appointments, and stores only the extracted details. You can connect several Google accounts."
               : "Gmail needs a Google OAuth client. Add these server environment variables and restart the app - see the README for the Google Cloud setup."
           }
           missing={google.configured ? undefined : google.missing}
+          local={{
+            description: google.configured
+              ? "Connect one or more Google accounts (read-only). The app finds receipts, subscriptions, trials, bills, bookings and appointments in your mail and keeps only those details - never whole emails."
+              : "Connect your Google accounts (read-only) and the app finds receipts, subscriptions, trials, bills, bookings and appointments in your mail. It needs a one-time setup of about 10 minutes, explained step by step.",
+            action: google.configured ? (
+              <ButtonLink href="/api/integrations/google/start?services=gmail,calendar" variant="primary" prefetch={false}>
+                <Mail /> Connect a Google account (read-only)
+              </ButtonLink>
+            ) : (
+              <ButtonLink href="/settings/accounts" variant="primary">
+                <Mail /> Set up email accounts
+              </ButtonLink>
+            ),
+          }}
           action={
             google.configured ? (
               <ButtonLink href="/api/integrations/google/start?services=gmail" variant="primary" prefetch={false}>
@@ -143,6 +173,26 @@ export async function EmailsView({ tab, searchParams }: { tab: EmailTab; searchP
             )
           }
         />
+      )}
+
+      {multi && (
+        <div className="flex flex-wrap items-center gap-1.5" data-testid="mailbox-filter">
+          {[{ id: undefined as string | undefined, label: "All mailboxes" }, ...mailboxes].map((m) => (
+            <Link
+              key={m.id ?? "all"}
+              href={accountHref(m.id)}
+              className={cn(
+                "rounded-full border px-3 py-1 text-[12.5px] transition-colors",
+                filters.connectionId === m.id ? "border-accent bg-accent-soft text-fg" : "border-border bg-surface text-secondary hover:border-border-strong hover:text-fg",
+              )}
+            >
+              {m.label}
+            </Link>
+          ))}
+          <ButtonLink href="/settings/accounts" variant="ghost" size="sm">
+            <Plus /> Add mailbox
+          </ButtonLink>
+        </div>
       )}
 
       <EmailFilters suggestions={suggestions} />
@@ -211,6 +261,7 @@ export async function EmailsView({ tab, searchParams }: { tab: EmailTab; searchP
                         {e.merchant ?? e.from_name ?? e.from_email}
                         {e.merchant && e.from_name && e.from_name !== e.merchant ? ` · via ${e.from_name}` : ""}
                         {e.order_number ? ` · #${e.order_number}` : ""}
+                        {multi && e.connection_id && mailboxLabel.has(e.connection_id) ? ` · ${mailboxLabel.get(e.connection_id)}` : ""}
                       </p>
                     </div>
                     <div className="hidden w-40 shrink-0 text-[12px] text-secondary md:block">{date ?? ""}</div>

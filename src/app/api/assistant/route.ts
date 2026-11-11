@@ -1,8 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
-import { getAnthropic } from "@/lib/ai/client";
-import { describeAssistantError, runAssistant, type AssistantEvent } from "@/lib/ai/assistant";
+import { AI_EFFORT, AI_MODEL, getAnthropic } from "@/lib/ai/client";
+import { describeAssistantError } from "@/lib/ai/assistant";
+import type { AssistantEvent } from "@/lib/ai/events";
+import { normaliseHistory, runAssistantTurn } from "@/lib/ai/run";
 import { assistantRateLimit } from "@/lib/ai/rate-limit";
 
 export const maxDuration = 120;
@@ -18,8 +20,13 @@ const body = z.object({
 
 /**
  * Streams the assistant's answer as newline-delimited JSON events:
- * {"type":"tool","label":...} while it reads data, {"type":"text","text":...}
- * for answer deltas, then {"type":"done"}. Nothing is persisted server-side.
+ * {"type":"engine",...} first, {"type":"tool","label":...} while it reads data,
+ * {"type":"text","text":...} for answer deltas, {"type":"card",...} for data
+ * cards, then {"type":"done"}. Nothing is persisted server-side.
+ *
+ * Claude answers when ANTHROPIC_API_KEY is configured and the user has
+ * switched the AI assistant on; otherwise the built-in assistant answers from
+ * the same data and nothing leaves this server.
  */
 export async function POST(request: NextRequest) {
   const user = await getSessionUser();
@@ -28,25 +35,22 @@ export async function POST(request: NextRequest) {
   const parsed = body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid_request", detail: parsed.error.issues[0]?.message }, { status: 400 });
 
-  const client = getAnthropic();
-  if (!client) return NextResponse.json({ error: "setup_required", missing: ["ANTHROPIC_API_KEY"] }, { status: 503 });
-
   const supabase = await createClient();
   const { data: profile } = await supabase.from("profiles").select("ai_assistant_enabled, base_currency").eq("id", user.id).maybeSingle();
-  if (!profile?.ai_assistant_enabled) return NextResponse.json({ error: "consent_required" }, { status: 403 });
+  const client = profile?.ai_assistant_enabled ? getAnthropic() : null;
 
-  const limit = assistantRateLimit.check(user.id);
-  if (!limit.allowed) {
-    return NextResponse.json({ error: "rate_limited", retry_after_seconds: Math.ceil(limit.retryAfterMs / 1000) }, { status: 429, headers: { "retry-after": String(Math.ceil(limit.retryAfterMs / 1000)) } });
+  // Only Claude calls cost money, so only they are rate limited.
+  if (client) {
+    const limit = assistantRateLimit.check(user.id);
+    if (!limit.allowed) {
+      return NextResponse.json({ error: "rate_limited", retry_after_seconds: Math.ceil(limit.retryAfterMs / 1000) }, { status: 429, headers: { "retry-after": String(Math.ceil(limit.retryAfterMs / 1000)) } });
+    }
   }
 
-  // Merge consecutive same-role turns (e.g. after a stopped answer) into one.
-  const history: { role: "user" | "assistant"; content: string }[] = [];
-  for (const m of parsed.data.messages) {
-    const last = history[history.length - 1];
-    if (last && last.role === m.role) last.content += `\n\n${m.content}`;
-    else history.push({ ...m });
-  }
+  const history = normaliseHistory(parsed.data.messages);
+  const upgradeHint = getAnthropic()
+    ? "For free-form questions, switch on the AI assistant (Claude) under Settings > Privacy & Security."
+    : "For free-form questions, add an Anthropic API key to the server (ANTHROPIC_API_KEY) and switch on the AI assistant under Settings > Privacy & Security.";
 
   const encoder = new TextEncoder();
   const abort = new AbortController();
@@ -62,12 +66,13 @@ export async function POST(request: NextRequest) {
         }
       };
       try {
-        await runAssistant({
-          client,
-          ctx: { supabase, userId: user.id, currency: profile.base_currency ?? "EUR", today: new Date() },
+        await runAssistantTurn({
+          claude: client ? { client, model: AI_MODEL, effort: AI_EFFORT } : null,
+          ctx: { supabase, userId: user.id, currency: profile?.base_currency ?? "EUR", today: new Date() },
           history,
           emit,
           signal: abort.signal,
+          upgradeHint,
         });
         emit({ type: "done" });
       } catch (err) {

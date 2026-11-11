@@ -9,21 +9,14 @@ import { readSecrets, updateConnection, writeSecrets } from "@/lib/integrations/
 /** Read-only scopes only. The app can never send, delete or modify email or calendar data. */
 import { GOOGLE_SCOPES, type GoogleService } from "./scopes";
 export { GOOGLE_SCOPES, hasScope, type GoogleService } from "./scopes";
+import { GoogleAuthError } from "./http";
+export { GoogleAuthError, googleFetch } from "./http";
 const IDENTITY_SCOPES = ["openid", "email"];
 
 export interface GoogleSecrets {
   refresh_token: string;
   access_token?: string;
   expires_at?: number; // epoch ms
-}
-
-export class GoogleAuthError extends Error {
-  constructor(
-    message: string,
-    public readonly reconnect: boolean,
-  ) {
-    super(message);
-  }
 }
 
 export function googleRedirectUri() {
@@ -36,7 +29,7 @@ export function createPkce() {
   return { verifier, challenge };
 }
 
-export function buildGoogleAuthUrl(opts: { state: string; challenge: string; services: GoogleService[]; loginHint?: string }) {
+export function buildGoogleAuthUrl(opts: { state: string; challenge: string; services: GoogleService[]; loginHint?: string; chooseAccount?: boolean }) {
   if (!env.google.clientId) throw new Error("GOOGLE_CLIENT_ID is not configured");
   const params = new URLSearchParams({
     client_id: env.google.clientId,
@@ -44,7 +37,8 @@ export function buildGoogleAuthUrl(opts: { state: string; challenge: string; ser
     response_type: "code",
     scope: [...IDENTITY_SCOPES, ...opts.services.map((s) => GOOGLE_SCOPES[s])].join(" "),
     access_type: "offline",
-    prompt: "consent",
+    // "consent" guarantees a refresh token; "select_account" lets the user pick which Google account to connect.
+    prompt: opts.chooseAccount ? "consent select_account" : "consent",
     include_granted_scopes: "true",
     state: opts.state,
     code_challenge: opts.challenge,
@@ -114,19 +108,3 @@ export async function getGoogleAccessToken(admin: AdminClient, connection: Conne
     throw e;
   }
 }
-
-/** Small helper for Google REST calls with consistent error handling. */
-export async function googleFetch<T>(accessToken: string, url: string): Promise<T> {
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const res = await fetch(url, { headers: { authorization: `Bearer ${accessToken}` }, cache: "no-store" });
-    if (res.status === 429 || res.status >= 500) {
-      await new Promise((r) => setTimeout(r, 500 * 2 ** attempt));
-      continue;
-    }
-    if (res.status === 401) throw new GoogleAuthError("Google rejected the access token", true);
-    if (!res.ok) throw new Error(`Google API ${res.status}: ${(await res.text()).slice(0, 300)}`);
-    return (await res.json()) as T;
-  }
-  throw new Error("Google API is rate limiting requests - try again later");
-}
-

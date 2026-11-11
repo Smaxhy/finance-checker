@@ -16,7 +16,10 @@ export async function GET(request: NextRequest) {
 
   const state = randomToken(24);
   const { verifier, challenge } = createPkce();
-  const response = NextResponse.redirect(buildGoogleAuthUrl({ state, challenge, services }));
+  // ?hint=<email> reconnects that account; without it Google shows its account chooser,
+  // so a second or third Google account can be connected.
+  const hint = request.nextUrl.searchParams.get("hint")?.slice(0, 254) || undefined;
+  const response = NextResponse.redirect(buildGoogleAuthUrl({ state, challenge, services, loginHint: hint, chooseAccount: !hint }));
   response.cookies.set("g_oauth", JSON.stringify({ state, verifier, uid: user.id }), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

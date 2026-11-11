@@ -44,4 +44,6 @@ next-env.d.ts
 # GitHub Pages edition: generated route shells and static export output
 src/app/**/page.local.tsx
 src/app/**/page-client.local.tsx
+# ...except the Google sign-in return page, which only exists in the Pages edition
+!src/app/oauth/page.local.tsx
 /out

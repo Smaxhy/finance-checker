@@ -6,6 +6,8 @@ import { formatDateTime } from "@/lib/format";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/misc";
 import { AiConsent, DataControls, RetentionSelect } from "@/components/settings/privacy-controls";
+import { AiLocalCard } from "@/components/local/settings";
+import { IS_LOCAL } from "@/lib/local/mode";
 import { SettingsTabs } from "../settings-tabs";
 
 export const metadata = { title: "Privacy & Security" };
@@ -16,6 +18,16 @@ const PRINCIPLES = [
   { icon: Lock, title: "Encrypted credentials", text: "Refresh tokens and bank session ids are AES-256-GCM encrypted at rest in a table no browser session can read. All traffic uses TLS." },
   { icon: Database, title: "Data minimisation", text: "From email we keep only extracted facts (sender, subject, amounts, dates, Gmail snippet) - never full message bodies. Old email data is purged after your retention period." },
   { icon: ShieldCheck, title: "Isolation", text: "Row-level security in the database ensures every query can only ever touch your own rows." },
+  { icon: Ban, title: "You stay in control", text: "Nothing is sent, paid or cancelled on your behalf. Disconnect anything at any time, export everything, or delete it all." },
+];
+
+// The GitHub Pages edition has no server or database, so what protects the data is different.
+const LOCAL_PRINCIPLES = [
+  { icon: Database, title: "Nothing on a server", text: "Your data lives in this browser's storage on this device. There is no account, no database and no copy anywhere else." },
+  { icon: KeyRound, title: "No passwords stored", text: "Google accounts are connected through Google's own sign-in. The app never sees or stores your email password." },
+  { icon: EyeOff, title: "Read-only by design", text: "Only read-only access is requested (gmail.readonly, calendar.readonly). The app technically cannot send email, move money or cancel anything." },
+  { icon: Lock, title: "Short-lived access", text: "Google gives this browser a read-only pass that expires after about an hour. It is kept only until the tab is closed, and is never written to storage or exports." },
+  { icon: ShieldCheck, title: "Data minimisation", text: "From email only extracted facts are kept (sender, subject, amounts, dates, Gmail's short preview) - never full message bodies. Old email data is removed after your retention period." },
   { icon: Ban, title: "You stay in control", text: "Nothing is sent, paid or cancelled on your behalf. Disconnect anything at any time, export everything, or delete it all." },
 ];
 
@@ -34,7 +46,7 @@ export default async function PrivacyPage() {
           <CardHeader title="How your data is handled" />
           <CardBody>
             <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {PRINCIPLES.map((p) => (
+              {(IS_LOCAL ? LOCAL_PRINCIPLES : PRINCIPLES).map((p) => (
                 <li key={p.title} className="flex gap-3">
                   <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent-text">
                     <p.icon className="size-4" />
@@ -56,15 +68,23 @@ export default async function PrivacyPage() {
                 <Bot className="size-4 text-muted" /> AI processing (opt-in)
               </span>
             }
-            description="Off by default. Insights on the dashboard are computed on this server without any AI provider."
+            description={
+              IS_LOCAL
+                ? "Off by default. The built-in assistant and every insight run in this browser without any AI provider."
+                : "Off by default. The built-in assistant and the insights on the dashboard are computed on this server without any AI provider."
+            }
           />
           <CardBody>
-            <AiConsent assistant={profile?.ai_assistant_enabled ?? false} extraction={profile?.ai_email_extraction_enabled ?? false} configured={status.anthropic.configured} />
+            {IS_LOCAL ? (
+              <AiLocalCard assistant={profile?.ai_assistant_enabled ?? false} extraction={profile?.ai_email_extraction_enabled ?? false} />
+            ) : (
+              <AiConsent assistant={profile?.ai_assistant_enabled ?? false} extraction={profile?.ai_email_extraction_enabled ?? false} configured={status.anthropic.configured} />
+            )}
           </CardBody>
         </Card>
 
         <Card>
-          <CardHeader title="Email data retention" description="Extracted email data older than this is deleted automatically by the daily job." />
+          <CardHeader title="Email data retention" description={IS_LOCAL ? "Extracted email data older than this is deleted automatically whenever your mail is checked." : "Extracted email data older than this is deleted automatically by the daily job."} />
           <CardBody>
             <RetentionSelect days={profile?.email_retention_days ?? 730} />
           </CardBody>

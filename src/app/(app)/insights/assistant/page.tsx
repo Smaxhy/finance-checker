@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { ShieldCheck, Sparkles } from "lucide-react";
 import { requireUser } from "@/lib/supabase/server";
 import { getProfile } from "@/lib/data/core";
-import { integrationStatus } from "@/lib/env";
-import { PageHeader, SetupRequired } from "@/components/ui/misc";
-import { ButtonLink } from "@/components/ui/button";
+import { env, integrationStatus } from "@/lib/env";
+import { modelName } from "@/lib/ai/models";
+import { IS_LOCAL } from "@/lib/local/mode";
+import { PageHeader } from "@/components/ui/misc";
 import { AssistantChat } from "./assistant-chat";
 
 export const metadata = { title: "AI Assistant" };
@@ -11,53 +13,42 @@ export const metadata = { title: "AI Assistant" };
 export default async function AssistantPage({ searchParams }: PageProps<"/insights/assistant">) {
   await requireUser();
   const [profile, sp] = await Promise.all([getProfile(), searchParams]);
-  const status = integrationStatus().anthropic;
+  const configured = integrationStatus().anthropic.configured;
   const consent = Boolean(profile?.ai_assistant_enabled);
+  const claude = configured && consent;
   const initialQuestion = typeof sp.q === "string" ? sp.q.slice(0, 500) : undefined;
-
-  const gate = !status.configured ? (
-    <SetupRequired
-      title="The AI assistant needs an Anthropic API key"
-      description={
-        <>
-          Add <code className="font-mono">ANTHROPIC_API_KEY</code> to the server environment and restart. Until then, every figure is still available in{" "}
-          <Link href="/insights/patterns" className="text-accent-text hover:underline">
-            Spending Patterns
-          </Link>{" "}
-          and{" "}
-          <Link href="/insights/reports" className="text-accent-text hover:underline">
-            Reports
-          </Link>
-          , which are computed without AI.
-        </>
-      }
-      missing={status.missing}
-    />
-  ) : !consent ? (
-    <SetupRequired
-      title="Turn on the AI assistant to ask questions"
-      description={
-        <div className="space-y-1.5">
-          <p>
-            To answer a question, the assistant reads your stored data on this server and sends the relevant results - totals, matching transactions, subscription details and
-            extracted email fields - together with your question to Anthropic&apos;s API. Full email bodies, bank credentials and tokens are never sent.
-          </p>
-          <p>Conversations are not saved by this app. You can switch the assistant off again at any time.</p>
-        </div>
-      }
-      action={
-        <ButtonLink href="/settings/privacy#ai" variant="primary" size="sm">
-          Review and enable in Privacy &amp; Security
-        </ButtonLink>
-      }
-    />
-  ) : null;
+  const where = IS_LOCAL ? "in this browser" : "on this server";
 
   return (
     <div className="flex min-h-[calc(100vh-8rem)] flex-col">
       <PageHeader title="AI Assistant" description="Ask about your spending, subscriptions, emails and plans. Answers come only from your own data." />
-      {gate ? <div className="mb-6">{gate}</div> : null}
-      <AssistantChat enabled={!gate} initialQuestion={initialQuestion} />
+      <div className="mx-auto mb-2 w-full max-w-3xl" data-testid="assistant-mode" data-mode={claude ? "claude" : "builtin"}>
+        {claude ? (
+          <p className="flex items-start gap-2 rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[12.5px] text-muted">
+            <Sparkles className="mt-0.5 size-3.5 shrink-0 text-accent-text" />
+            <span>
+              <span className="font-medium text-fg">{modelName(env.anthropic.model)} is answering.</span> Your question and the figures it looks up are sent to Anthropic to write the answer - never email
+              bodies, bank logins or tokens.{" "}
+              <Link href="/settings/privacy#ai" className="text-accent-text hover:underline">
+                Change
+              </Link>
+            </span>
+          </p>
+        ) : (
+          <p className="flex items-start gap-2 rounded-xl border border-border bg-surface px-3.5 py-2.5 text-[12.5px] text-muted">
+            <ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-positive" />
+            <span>
+              <span className="font-medium text-fg">The built-in assistant is answering.</span> It works out common questions {where} and sends nothing anywhere. For free-form questions and deeper
+              analysis,{" "}
+              <Link href={configured ? "/settings/privacy#ai" : "/settings/accounts#ai"} className="text-accent-text hover:underline">
+                {configured ? "switch on Claude" : "add Claude (optional)"}
+              </Link>
+              .
+            </span>
+          </p>
+        )}
+      </div>
+      <AssistantChat initialQuestion={initialQuestion} />
     </div>
   );
 }

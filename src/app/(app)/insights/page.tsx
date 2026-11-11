@@ -17,7 +17,7 @@ export default async function InsightsPage() {
   const aiReady = integrationStatus().anthropic.configured && Boolean(profile?.ai_assistant_enabled);
 
   const sections = [
-    { href: "/insights/assistant", icon: Bot, title: "AI Assistant", text: aiReady ? "Ask questions in plain language - answered from your own data." : "Ask questions in plain language (needs setup).", },
+    { href: "/insights/assistant", icon: Bot, title: "AI Assistant", text: aiReady ? "Ask anything in plain language, or run a full check-up - answered by Claude from your own data." : "Ask questions in plain language or run a full check-up - answered from your own data." },
     { href: "/insights/patterns", icon: FlaskConical, title: "Spending Patterns", text: "Day-of-week habits, recurring vs day-to-day, category changes, top merchants." },
     { href: "/insights/reports", icon: FileBarChart, title: "Reports", text: "Monthly report and 12-month overview. Print it or export transactions as CSV." },
   ];
@@ -25,7 +25,7 @@ export default async function InsightsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Insights" description="Observations computed from your data, plus an assistant for everything else." />
-      <AskBox enabled={aiReady} />
+      <AskBox />
       <section className="grid gap-3 md:grid-cols-3">
         {sections.map((s) => (
           <Link key={s.href} href={s.href} className="card group p-4 transition-all hover:-translate-y-px hover:border-border-strong">

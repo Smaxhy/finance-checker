@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "build:pages": "node scripts/gen-pages-routes.mjs && NEXT_PUBLIC_LOCAL_MODE=1 next build && node scripts/finish-pages.mjs",
     "dev:pages": "node scripts/gen-pages-routes.mjs && NEXT_PUBLIC_LOCAL_MODE=1 next dev -p 3100"
   },

@@ -158,12 +158,15 @@ export function SetupRequired({
   missing,
   action,
   className,
+  local,
 }: {
   title: string;
   description: ReactNode;
   missing?: string[];
   action?: ReactNode;
   className?: string;
+  /** GitHub Pages edition: what to show instead, for features that do work there after a one-time setup. */
+  local?: { description: ReactNode; action?: ReactNode };
 }) {
   return (
     <div className={cn("rounded-xl border border-dashed border-border-strong bg-surface/60 p-4 sm:p-5", className)}>
@@ -175,7 +178,8 @@ export function SetupRequired({
           <p className="text-[13.5px] font-medium">{title}</p>
           <div className="mt-1 text-[12.5px] text-muted">
             {IS_LOCAL
-              ? "This needs a private server (for Google, bank or AI credentials), which the GitHub Pages edition doesn't have - everything here runs in your browser. Import a bank CSV instead, or deploy the full edition described in the README."
+              ? (local?.description ??
+                "This needs a private server (for bank credentials), which the GitHub Pages edition doesn't have - everything here runs in your browser. Import a bank CSV instead, or deploy the full edition described in the README.")
               : description}
           </div>
           {!IS_LOCAL && missing && missing.length > 0 ? (
@@ -188,7 +192,8 @@ export function SetupRequired({
             </div>
           ) : null}
           {action && !IS_LOCAL ? <div className="mt-3 flex flex-wrap gap-2">{action}</div> : null}
-          {IS_LOCAL ? (
+          {IS_LOCAL && local?.action ? <div className="mt-3 flex flex-wrap gap-2">{local.action}</div> : null}
+          {IS_LOCAL && !local ? (
             <div className="mt-3">
               <Link href="/finances/transactions?import=1" className="text-[12.5px] text-accent-text hover:underline">
                 Import a bank CSV →

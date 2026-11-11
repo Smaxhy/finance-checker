@@ -149,4 +149,39 @@ describe("runCalendarSync", () => {
     expect(urls.filter((u) => u.includes("/events?")).every((u) => u.includes("singleEvents=true") && u.includes("timeMin=2026-10-10T10%3A00%3A00.000Z"))).toBe(true);
     expect(urls.some((u) => u.includes("pageToken=page-2"))).toBe(true);
   });
+
+  it("with several Google accounts, cleans up only this account's calendars", async () => {
+    const { fetchJson } = syncCalendarFixtures();
+    const db = new Map<string, string>([
+      ["alex@example.com:gone", "row-gone"], // deleted upstream in this account
+      ["old-shared@group.calendar.google.com:x1", "row-unsubscribed"], // a calendar this account showed last time and no longer does
+      ["sam@example.com:s1", "row-other-account"], // belongs to the second connected account
+    ]);
+    const store: CalendarStore = {
+      async listExisting() {
+        return [...db].map(([external_id, id]) => ({ id, external_id }));
+      },
+      async upsert(rows) {
+        for (const r of rows) db.set(r.external_id, db.get(r.external_id) ?? `new-${r.external_id}`);
+      },
+      async deleteIds(ids) {
+        for (const [k, v] of db) if (ids.includes(v)) db.delete(k);
+      },
+    };
+    let seen: string[] = [];
+    const stats = await runCalendarSync({
+      fetchJson,
+      store,
+      userId: "user-1",
+      tz: "Europe/Brussels",
+      now: new Date("2026-11-09T10:00:00Z"),
+      ownCalendarIds: ["alex@example.com", "old-shared@group.calendar.google.com"],
+      onCalendars: (ids) => (seen = ids),
+    });
+    expect(stats.removed).toBe(2);
+    expect(db.has("sam@example.com:s1")).toBe(true); // the other account's event survives
+    expect(db.has("alex@example.com:gone")).toBe(false);
+    expect(db.has("old-shared@group.calendar.google.com:x1")).toBe(false);
+    expect(seen).toEqual(["alex@example.com", "work@group.calendar.google.com"]);
+  });
 });

@@ -1,19 +1,21 @@
 import Link from "next/link";
-import { ArrowRight, CalendarDays, FileUp, FlaskConical, Landmark, Mail, ShieldCheck } from "lucide-react";
+import { ArrowRight, CalendarDays, FileUp, FlaskConical, Landmark, Mail, ShieldCheck, Sparkles } from "lucide-react";
 import { integrationStatus } from "@/lib/env";
 import { LoadDemoButton } from "@/components/demo-controls";
+import { IS_LOCAL } from "@/lib/local/mode";
 
 export function OnboardingPanel() {
   const status = integrationStatus();
-  const sources = [
+  const all = [
     {
       icon: Mail,
-      title: "Connect Gmail",
-      text: "Read-only. Extracts receipts, subscriptions, trials, bills and bookings.",
+      title: "Connect your email accounts",
+      text: "Read-only, as many Gmail accounts as you have. Finds receipts, subscriptions, trials, bills and bookings.",
       href: "/settings/accounts",
       ready: status.google.configured,
     },
     {
+      bank: true,
       icon: Landmark,
       title: "Connect your bank",
       text: "PSD2 read-only access via Enable Banking - KBC, Belfius, ING, BNP Paribas Fortis, Argenta…",
@@ -34,7 +36,17 @@ export function OnboardingPanel() {
       href: "/settings/accounts",
       ready: status.google.configured,
     },
+    {
+      localOnly: true,
+      icon: Sparkles,
+      title: "Ask the assistant",
+      text: "Works straight away, no setup: ask about your money or run a full check-up.",
+      href: "/insights/assistant",
+      ready: true,
+    },
   ];
+  // Live bank connections need a server; the browser-only edition offers the assistant tile instead.
+  const sources = all.filter((s) => (IS_LOCAL ? !("bank" in s) : !("localOnly" in s)));
   return (
     <div className="mt-8 grid gap-4 lg:grid-cols-[1.4fr_1fr]">
       <div className="card p-6">

@@ -1,5 +1,5 @@
-import "server-only";
-import { googleFetch } from "./oauth";
+// Browser-safe: plain read-only REST calls with a bearer token.
+import { googleFetch } from "./http";
 import type { GmailMessage } from "@/lib/email/mime";
 
 /**
@@ -30,8 +30,17 @@ export async function getMessageFull(accessToken: string, id: string): Promise<G
   return googleFetch<GmailMessage>(accessToken, `${BASE}/messages/${encodeURIComponent(id)}?format=full`);
 }
 
-export function gmailWebLink(id: string): string {
+/** Link that opens the message in Gmail, in the right account when several are signed in. */
+export function gmailWebLink(id: string, account?: string | null): string {
+  if (account && account.includes("@")) return `https://mail.google.com/mail/?authuser=${encodeURIComponent(account)}#all/${encodeURIComponent(id)}`;
   return `https://mail.google.com/mail/u/0/#all/${encodeURIComponent(id)}`;
+}
+
+/** The address of the mailbox a token belongs to. */
+export async function getGmailAddress(accessToken: string): Promise<string> {
+  const profile = await googleFetch<{ emailAddress?: string }>(accessToken, `${BASE}/profile`);
+  if (!profile.emailAddress) throw new Error("Google did not return the mailbox address");
+  return profile.emailAddress;
 }
 
 /** Runs `fn` over `items` with at most `limit` promises in flight. */

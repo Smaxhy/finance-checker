@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ArrowUp, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export function AskBox({ enabled }: { enabled: boolean }) {
+export function AskBox() {
   const [q, setQ] = useState("");
   const router = useRouter();
   const go = () => router.push(q.trim() ? `/insights/assistant?q=${encodeURIComponent(q.trim())}` : "/insights/assistant");
@@ -20,7 +20,7 @@ export function AskBox({ enabled }: { enabled: boolean }) {
       <input
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        placeholder={enabled ? "Ask anything - e.g. “How much did I spend on Amazon this year?”" : "Ask anything (the assistant needs to be set up first)"}
+        placeholder="Ask anything - e.g. “How much did I spend on Amazon this year?”"
         aria-label="Ask the assistant"
         className="h-9 flex-1 bg-transparent px-1 text-[13.5px] outline-none placeholder:text-muted"
       />

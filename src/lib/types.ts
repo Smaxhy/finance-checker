@@ -178,6 +178,8 @@ export interface Budget {
 export interface EmailRecord {
   id: string;
   user_id: string;
+  /** The mailbox this came from; null for sample data or after its account was disconnected. */
+  connection_id?: string | null;
   provider: string;
   external_id: string;
   thread_id: string | null;

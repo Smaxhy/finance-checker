@@ -10,12 +10,21 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { exportAll, flushNow, LOCAL_CHANGE_EVENT, LOCAL_USER_ID, localDb, ready } from "./db";
 import { BASE_PATH } from "./mode";
+import { handleAssistantRequest } from "./assistant";
+import { AUTO_FLAG, MAIL_CHECK_EVENT, SYNC_FLAG, getToken, googleConnections, startAddAccount, startRefresh } from "./google";
+import { describeSync, syncGoogleLocal } from "./sync";
+import { getAutoCheck, getGoogleClientId } from "./prefs";
+import type { GoogleService } from "@/lib/integrations/google/scopes";
 import { runPipeline } from "@/lib/engines/pipeline";
 import { buildTransactionsCsv } from "@/app/api/reports/csv";
 import type { AppSupabaseClient } from "./server";
 
 const db = localDb as unknown as AppSupabaseClient;
 const UNAVAILABLE = "Not available in the GitHub Pages edition - it runs only in your browser. Import a bank CSV instead, or deploy the full edition (see README).";
+/** While the app is open, mailboxes with a valid sign-in are re-checked this often. */
+const RECHECK_MS = 15 * 60_000;
+/** An automatic trip to Google on opening the app happens at most this often. */
+const AUTO_REFRESH_MS = 3 * 3600_000;
 
 /** Path inside the app: base path removed, trailing slash dropped (the static export adds one). */
 function appPath(url: URL): string {
@@ -55,6 +64,53 @@ async function localSync() {
   return pipeline;
 }
 
+/**
+ * "Sync" for the GitHub Pages edition. With Google accounts connected it checks
+ * them (read-only) and then re-runs detection; without any, it only re-runs
+ * detection on the local data. Mirrors the server's /api/sync response.
+ */
+async function localSyncRequest(init?: RequestInit) {
+  let body: { connectionId?: string; full?: boolean } = {};
+  try {
+    body = typeof init?.body === "string" ? JSON.parse(init.body) : {};
+  } catch {
+    body = {};
+  }
+  const connections = await googleConnections();
+  if (connections.length === 0) return { results: [], pipeline: await localSync() };
+  const { results, pipeline } = await syncGoogleLocal({ connectionId: body.connectionId, full: body.full });
+  const expired = results.filter((r) => r.needsSignIn);
+  if (expired.length > 0 && expired.length === results.length) {
+    // Nothing could be checked because the hour-long sign-in ran out. The user just asked for a
+    // check, so fetch fresh access from Google now; the app comes back here and checks by itself.
+    await flushNow();
+    if (await startRefresh(expired.map((r) => r.connectionId))) return new Promise<never>(() => undefined);
+  }
+  return { results: results.map((r) => (r.needsSignIn ? { ...r, error: `Sign in to Google again to check ${r.label} (Settings > Connected Accounts > Reconnect).` } : r)), pipeline };
+}
+
+/** Checks every connected mailbox and reports the outcome in a toast. */
+async function checkMail(announce: boolean) {
+  const id = announce ? toast.loading("Checking your email…") : undefined;
+  try {
+    const { results } = await syncGoogleLocal({
+      onProgress: (p) => {
+        if (id === undefined) return;
+        const d = p.detail;
+        toast.loading(`Checking ${p.label}…`, { id, description: p.step === "calendar" ? "Reading the calendar" : d?.phase === "reading" ? `Read ${d.done} of ${d.total} new messages` : d?.phase === "saving" ? "Saving what matters" : "Looking for new messages" });
+      },
+    });
+    const ok = results.filter((r) => r.ok);
+    const failed = results.filter((r) => !r.ok && !r.needsSignIn);
+    const stored = ok.reduce((a, r) => a + Number(r.stats.gmail?.stored ?? 0), 0);
+    if (failed.length) toast.error(`Couldn't check ${failed.map((r) => r.label).join(", ")}`, { id, description: failed[0].error });
+    else if (announce) toast.success("Email checked", { id, description: ok.length ? describeSync(results) : "Sign in to Google again under Settings > Connected Accounts." });
+    else if (stored > 0) toast.success(`${stored} new email${stored === 1 ? "" : "s"} worth knowing about`, { description: describeSync(results) });
+  } catch (e) {
+    if (announce) toast.error("Couldn't check your email", { id, description: e instanceof Error ? e.message : undefined });
+  }
+}
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
@@ -75,8 +131,9 @@ export function LocalBoot() {
       if (url.origin !== window.location.origin) return realFetch(input, init);
       const path = appPath(url);
       if (!path.startsWith("/api/")) return realFetch(input, init);
-      if (path === "/api/sync") return json({ results: [], pipeline: await localSync() });
-      if (path === "/api/assistant" || path.startsWith("/api/integrations/")) return json({ error: "setup_required", message: UNAVAILABLE }, 503);
+      if (path === "/api/sync") return json(await localSyncRequest(init));
+      if (path === "/api/assistant") return handleAssistantRequest(init);
+      if (path.startsWith("/api/integrations/")) return json({ error: "setup_required", message: UNAVAILABLE }, 503);
       return json({ error: UNAVAILABLE }, 404);
     };
 
@@ -98,6 +155,12 @@ export function LocalBoot() {
       } else if (path === "/api/export") {
         stop();
         void exportEverything();
+      } else if (path === "/api/integrations/google/start") {
+        // "Connect Gmail / Calendar" and "Reconnect": go to Google for read-only access.
+        stop();
+        const services = (url.searchParams.get("services") ?? "gmail,calendar").split(",").filter((x): x is GoogleService => x === "gmail" || x === "calendar");
+        if (!getGoogleClientId()) toast.info("Add your Google client ID first (Settings > Connected Accounts).");
+        else void flushNow().then(() => startAddAccount(services, { loginHint: url.searchParams.get("hint") ?? undefined }));
       } else if (path.startsWith("/api/")) {
         stop();
         toast.info(UNAVAILABLE);
@@ -117,13 +180,47 @@ export function LocalBoot() {
     document.addEventListener("visibilitychange", onHide);
     window.addEventListener("pagehide", onHide);
 
-    // 4. "Daily job": refresh detection and notifications at most every 6 hours.
+    // 4. Keep things fresh. With Google accounts connected: check them when the app comes back
+    //    from a sign-in, when it opens with a still-valid sign-in, and every 15 minutes while open.
+    //    Without any: just refresh detection and notifications at most every 6 hours.
+    const lastMailCheck = () => Number(localStorage.getItem("cc:lastMailCheck") ?? 0);
     (async () => {
       await ready();
-      const last = Number(localStorage.getItem("cc:lastPipeline") ?? 0);
-      const { count } = await localDb.from("transactions").select("id", { count: "exact", head: true });
-      if ((count ?? 0) > 0 && Date.now() - last > 6 * 3600_000) await localSync().catch(() => undefined);
+      if (appPath(new URL(window.location.href)).startsWith("/oauth")) return;
+      const connections = await googleConnections();
+      if (connections.length === 0) {
+        const last = Number(localStorage.getItem("cc:lastPipeline") ?? 0);
+        const { count } = await localDb.from("transactions").select("id", { count: "exact", head: true });
+        if ((count ?? 0) > 0 && Date.now() - last > 6 * 3600_000) await localSync().catch(() => undefined);
+        return;
+      }
+      if (sessionStorage.getItem(SYNC_FLAG)) {
+        sessionStorage.removeItem(SYNC_FLAG);
+        await checkMail(true);
+        return;
+      }
+      const signedIn = connections.filter((c) => getToken(c.id));
+      if (signedIn.length > 0) {
+        if (Date.now() - lastMailCheck() > RECHECK_MS) await checkMail(false);
+      } else if (getAutoCheck() && getGoogleClientId() && navigator.onLine && !sessionStorage.getItem(AUTO_FLAG) && Date.now() - lastMailCheck() > AUTO_REFRESH_MS) {
+        // Opt-in: fetch fresh read-only access without asking (once per tab, so it can never loop).
+        sessionStorage.setItem(AUTO_FLAG, "1");
+        await flushNow();
+        await startRefresh(connections.map((c) => c.id));
+      }
     })();
+    // Back from a sign-in round trip (the app navigates back without reloading): check now.
+    window.addEventListener(MAIL_CHECK_EVENT, () => {
+      if (!sessionStorage.getItem(SYNC_FLAG)) return;
+      sessionStorage.removeItem(SYNC_FLAG);
+      void checkMail(true);
+    });
+    window.setInterval(() => {
+      if (document.visibilityState !== "visible" || Date.now() - lastMailCheck() < RECHECK_MS) return;
+      void googleConnections().then((connections) => {
+        if (connections.some((c) => getToken(c.id))) void checkMail(false);
+      });
+    }, 5 * 60_000);
   }, [router]);
 
   return null;
